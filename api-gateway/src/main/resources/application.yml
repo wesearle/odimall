@@ -1,0 +1,18 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: api-gateway
+
+services:
+  product-url: ${PRODUCT_SERVICE_URL:http://product-service:8082}
+  cart-url: ${CART_SERVICE_URL:http://cart-service:8083}
+  user-url: ${USER_SERVICE_URL:http://user-service:8084}
+  order-url: ${ORDER_SERVICE_URL:http://order-service:8085}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics

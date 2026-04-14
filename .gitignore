@@ -1,0 +1,12 @@
+.DS_Store
+node_modules/
+target/
+*.class
+*.jar
+__pycache__/
+*.pyc
+.bundle/
+vendor/bundle/
+bin/
+obj/
+go.sum

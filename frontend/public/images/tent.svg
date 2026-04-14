@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <rect width="200" height="200" rx="20" fill="#fdf6ec" opacity="0.5"/>
+  <g transform="translate(15,40)">
+    <!-- Tent body -->
+    <path d="M85 10 L10 130 L160 130 Z" fill="#d4a373"/>
+    <path d="M85 10 L10 130 L85 130 Z" fill="#c49566"/>
+    <!-- Door -->
+    <path d="M85 50 L65 130 L105 130 Z" fill="#b07d4f"/>
+    <path d="M85 50 L85 130" stroke="#8B6914" stroke-width="1.5"/>
+    <!-- Ridge pole top -->
+    <circle cx="85" cy="10" r="3" fill="#8B6914"/>
+    <!-- Guy lines -->
+    <line x1="10" y1="130" x2="0" y2="125" stroke="#999" stroke-width="1" stroke-dasharray="3,2"/>
+    <line x1="160" y1="130" x2="170" y2="125" stroke="#999" stroke-width="1" stroke-dasharray="3,2"/>
+    <!-- Ground -->
+    <line x1="0" y1="130" x2="170" y2="130" stroke="#9e8c6c" stroke-width="2"/>
+  </g>
+</svg>

@@ -1,0 +1,85 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pvc
+  namespace: odimall
+  labels:
+    app: mysql
+    app.kubernetes.io/part-of: odimall
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  namespace: odimall
+  labels:
+    app: mysql
+    app.kubernetes.io/part-of: odimall
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: mysql
+        app.kubernetes.io/part-of: odimall
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: "rootpass"
+            - name: MYSQL_DATABASE
+              value: "odimall"
+            - name: MYSQL_USER
+              value: "odimall"
+            - name: MYSQL_PASSWORD
+              value: "odimall123"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+            - name: mysql-init
+              mountPath: /docker-entrypoint-initdb.d
+      volumes:
+        - name: mysql-data
+          persistentVolumeClaim:
+            claimName: mysql-pvc
+        - name: mysql-init
+          configMap:
+            name: mysql-init-sql
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: odimall
+  labels:
+    app: mysql
+    app.kubernetes.io/part-of: odimall
+spec:
+  selector:
+    app: mysql
+  ports:
+    - port: 3306
+      targetPort: 3306
+  clusterIP: None

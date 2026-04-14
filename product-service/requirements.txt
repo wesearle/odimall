@@ -1,0 +1,5 @@
+flask
+pymysql
+sqlalchemy
+google-cloud-sqlcommenter
+protobuf

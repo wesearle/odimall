@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+  namespace: odimall
+  labels:
+    app: order-service
+    app.kubernetes.io/part-of: odimall
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: order-service
+  template:
+    metadata:
+      labels:
+        app: order-service
+        app.kubernetes.io/part-of: odimall
+    spec:
+      containers:
+        - name: order-service
+          image: wsearle/odimall:order-service
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8085
+          env:
+            - name: DB_HOST
+              value: "mysql"
+            - name: DB_PORT
+              value: "3306"
+            - name: DB_USER
+              value: "odimall"
+            - name: DB_PASSWORD
+              value: "odimall123"
+            - name: DB_NAME
+              value: "odimall"
+            - name: PAYMENT_SERVICE_URL
+              value: "http://payment-service:8086"
+            - name: SHIPPING_SERVICE_URL
+              value: "http://shipping-service:8087"
+            - name: INVENTORY_SERVICE_URL
+              value: "http://inventory-service:8088"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+  namespace: odimall
+  labels:
+    app: order-service
+    app.kubernetes.io/part-of: odimall
+spec:
+  selector:
+    app: order-service
+  ports:
+    - port: 8085
+      targetPort: 8085

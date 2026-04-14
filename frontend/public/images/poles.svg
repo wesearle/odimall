@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <rect width="200" height="200" rx="20" fill="#f5f5f5" opacity="0.5"/>
+  <g transform="translate(40,15)">
+    <!-- Pole 1 -->
+    <line x1="35" y1="20" x2="15" y2="165" stroke="#888" stroke-width="4" stroke-linecap="round"/>
+    <rect x="25" y="10" width="20" height="30" rx="4" fill="#a0522d"/>
+    <circle cx="16" cy="168" r="6" fill="#999" stroke="#777" stroke-width="1.5"/>
+    <!-- Pole 2 -->
+    <line x1="90" y1="20" x2="110" y2="165" stroke="#888" stroke-width="4" stroke-linecap="round"/>
+    <rect x="80" y="10" width="20" height="30" rx="4" fill="#a0522d"/>
+    <circle cx="109" cy="168" r="6" fill="#999" stroke="#777" stroke-width="1.5"/>
+    <!-- Wrist straps -->
+    <path d="M25 22 Q15 15 25 10" stroke="#666" stroke-width="2" fill="none"/>
+    <path d="M100 22 Q110 15 100 10" stroke="#666" stroke-width="2" fill="none"/>
+  </g>
+</svg>

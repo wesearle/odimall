@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shipping-service
+  namespace: odimall
+  labels:
+    app: shipping-service
+    app.kubernetes.io/part-of: odimall
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: shipping-service
+  template:
+    metadata:
+      labels:
+        app: shipping-service
+        app.kubernetes.io/part-of: odimall
+    spec:
+      containers:
+        - name: shipping-service
+          image: wsearle/odimall:shipping-service
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8087
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shipping-service
+  namespace: odimall
+  labels:
+    app: shipping-service
+    app.kubernetes.io/part-of: odimall
+spec:
+  selector:
+    app: shipping-service
+  ports:
+    - port: 8087
+      targetPort: 8087

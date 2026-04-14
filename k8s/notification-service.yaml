@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  namespace: odimall
+  labels:
+    app: notification-service
+    app.kubernetes.io/part-of: odimall
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+        app.kubernetes.io/part-of: odimall
+    spec:
+      containers:
+        - name: notification-service
+          image: wsearle/odimall:notification-service
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8089
+          env:
+            - name: KAFKA_BROKERS
+              value: "kafka:9092"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+  namespace: odimall
+  labels:
+    app: notification-service
+    app.kubernetes.io/part-of: odimall
+spec:
+  selector:
+    app: notification-service
+  ports:
+    - port: 8089
+      targetPort: 8089

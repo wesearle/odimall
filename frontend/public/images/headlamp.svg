@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <rect width="200" height="200" rx="20" fill="#fff8e1" opacity="0.5"/>
+  <g transform="translate(30,40)">
+    <!-- Headband -->
+    <path d="M10 60 Q70 20 130 60" stroke="#333" stroke-width="8" fill="none" stroke-linecap="round"/>
+    <path d="M10 60 Q70 100 130 60" stroke="#333" stroke-width="8" fill="none" stroke-linecap="round"/>
+    <!-- Lamp housing -->
+    <rect x="48" y="25" width="44" height="32" rx="8" fill="#f39c12"/>
+    <rect x="48" y="25" width="44" height="32" rx="8" stroke="#e67e22" stroke-width="2" fill="none"/>
+    <!-- Lens -->
+    <circle cx="70" cy="41" r="10" fill="#ffeaa7"/>
+    <circle cx="70" cy="41" r="6" fill="white" opacity="0.8"/>
+    <!-- Light beam -->
+    <path d="M60 25 L45 0 L95 0 L80 25" fill="#f39c12" opacity="0.2"/>
+    <!-- Battery pack -->
+    <rect x="55" y="82" width="30" height="18" rx="4" fill="#555"/>
+    <rect x="62" y="86" width="6" height="10" rx="1" fill="#777"/>
+    <rect x="72" y="86" width="6" height="10" rx="1" fill="#777"/>
+  </g>
+</svg>

@@ -1,0 +1,13 @@
+{
+  "name": "odimall-frontend",
+  "version": "1.0.0",
+  "description": "OdiMall e-commerce frontend",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "http-proxy-middleware": "^2.0.6"
+  }
+}

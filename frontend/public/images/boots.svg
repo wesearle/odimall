@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <rect width="200" height="200" rx="20" fill="#faf0e6" opacity="0.5"/>
+  <g transform="translate(40,30)">
+    <!-- Boot shape -->
+    <path d="M30 60 L30 20 Q30 10 40 10 L80 10 Q90 10 90 20 L90 80 Q90 95 100 100 L120 110 Q130 115 130 125 L130 140 L10 140 L10 125 Q10 110 20 105 L30 100 Z" fill="#8B4513"/>
+    <path d="M30 60 L30 20 Q30 10 40 10 L80 10 Q90 10 90 20 L90 50 L30 60Z" fill="#a0522d"/>
+    <!-- Sole -->
+    <rect x="5" y="135" width="130" height="15" rx="5" fill="#5c3317"/>
+    <!-- Laces -->
+    <line x1="45" y1="25" x2="75" y2="25" stroke="#d4a373" stroke-width="2"/>
+    <line x1="43" y1="35" x2="77" y2="35" stroke="#d4a373" stroke-width="2"/>
+    <line x1="41" y1="45" x2="79" y2="45" stroke="#d4a373" stroke-width="2"/>
+    <line x1="39" y1="55" x2="81" y2="55" stroke="#d4a373" stroke-width="2"/>
+  </g>
+</svg>

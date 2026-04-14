@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <rect width="200" height="200" rx="20" fill="#e8f5e9" opacity="0.5"/>
+  <g transform="translate(50,15)">
+    <!-- Top flap -->
+    <rect x="10" y="0" width="80" height="25" rx="8" fill="#1b4332"/>
+    <!-- Main body -->
+    <rect x="5" y="20" width="90" height="120" rx="12" fill="#2d6a4f"/>
+    <!-- Front pocket -->
+    <rect x="15" y="75" width="70" height="50" rx="8" fill="#40916c"/>
+    <line x1="50" y1="85" x2="50" y2="115" stroke="#2d6a4f" stroke-width="2"/>
+    <!-- Straps -->
+    <path d="M15 30 Q-5 80 10 140" stroke="#1b4332" stroke-width="6" fill="none" stroke-linecap="round"/>
+    <path d="M85 30 Q105 80 90 140" stroke="#1b4332" stroke-width="6" fill="none" stroke-linecap="round"/>
+    <!-- Buckle -->
+    <rect x="40" y="60" width="20" height="8" rx="2" fill="#d4a373"/>
+    <!-- Top handle -->
+    <path d="M35 5 Q50 -8 65 5" stroke="#1b4332" stroke-width="4" fill="none" stroke-linecap="round"/>
+  </g>
+</svg>

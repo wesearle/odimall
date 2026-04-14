@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <rect width="200" height="200" rx="20" fill="#fce4ec" opacity="0.5"/>
+  <g transform="translate(30,20)">
+    <!-- Body -->
+    <path d="M45 15 L25 15 Q15 15 15 25 L15 140 L60 140 L60 45 Z" fill="#e74c3c"/>
+    <path d="M95 15 L115 15 Q125 15 125 25 L125 140 L80 140 L80 45 Z" fill="#e74c3c"/>
+    <!-- Center zip area -->
+    <rect x="60" y="40" width="20" height="100" fill="#c0392b"/>
+    <line x1="70" y1="40" x2="70" y2="140" stroke="#a93226" stroke-width="2"/>
+    <!-- Collar -->
+    <path d="M45 15 Q70 0 95 15 Q70 25 45 15" fill="#c0392b"/>
+    <!-- Left sleeve -->
+    <path d="M15 25 L-10 35 Q-18 38 -15 46 L-5 90 L15 85 L15 25Z" fill="#d63031"/>
+    <!-- Right sleeve -->
+    <path d="M125 25 L150 35 Q158 38 155 46 L145 90 L125 85 L125 25Z" fill="#d63031"/>
+    <!-- Pocket lines -->
+    <line x1="25" y1="85" x2="55" y2="85" stroke="#c0392b" stroke-width="1.5"/>
+    <line x1="85" y1="85" x2="115" y2="85" stroke="#c0392b" stroke-width="1.5"/>
+    <!-- Hood outline -->
+    <path d="M45 15 Q40 -10 70 -15 Q100 -10 95 15" stroke="#c0392b" stroke-width="2" fill="#e74c3c"/>
+  </g>
+</svg>

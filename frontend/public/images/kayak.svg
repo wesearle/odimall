@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <rect width="200" height="200" rx="20" fill="#e3f2fd" opacity="0.5"/>
+  <g transform="translate(10,50)">
+    <!-- Kayak hull -->
+    <path d="M5 60 Q90 30 180 60 Q90 85 5 60Z" fill="#2196F3"/>
+    <path d="M5 60 Q90 30 180 60 Q90 50 5 60Z" fill="#1976D2"/>
+    <!-- Cockpit -->
+    <ellipse cx="90" cy="52" rx="22" ry="10" fill="#1565C0"/>
+    <ellipse cx="90" cy="52" rx="16" ry="7" fill="#0D47A1"/>
+    <!-- Paddle -->
+    <line x1="40" y1="20" x2="140" y2="90" stroke="#795548" stroke-width="3" stroke-linecap="round"/>
+    <ellipse cx="38" cy="18" rx="12" ry="5" fill="#9E9E9E" transform="rotate(-35 38 18)"/>
+    <ellipse cx="142" cy="92" rx="12" ry="5" fill="#9E9E9E" transform="rotate(-35 142 92)"/>
+  </g>
+</svg>

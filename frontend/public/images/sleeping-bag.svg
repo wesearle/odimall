@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <rect width="200" height="200" rx="20" fill="#e3f2fd" opacity="0.5"/>
+  <g transform="translate(25,35)">
+    <!-- Sleeping bag body -->
+    <path d="M20 10 Q75 -10 130 10 L140 120 Q75 140 10 120 Z" fill="#4a6fa5"/>
+    <!-- Hood section -->
+    <ellipse cx="75" cy="10" rx="55" ry="20" fill="#3a5f8a"/>
+    <!-- Inner lining visible at top -->
+    <ellipse cx="75" cy="12" rx="35" ry="12" fill="#7ba7d4"/>
+    <!-- Zipper line -->
+    <line x1="20" y1="15" x2="12" y2="120" stroke="#2c4a6e" stroke-width="2" stroke-dasharray="4,3"/>
+    <!-- Quilting lines -->
+    <path d="M30 40 Q75 30 120 40" stroke="#3a5f8a" stroke-width="1.5" fill="none"/>
+    <path d="M25 65 Q75 55 125 65" stroke="#3a5f8a" stroke-width="1.5" fill="none"/>
+    <path d="M20 90 Q75 80 130 90" stroke="#3a5f8a" stroke-width="1.5" fill="none"/>
+  </g>
+</svg>

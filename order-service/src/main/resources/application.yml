@@ -1,0 +1,26 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: order-service
+  datasource:
+    url: jdbc:mysql://${DB_HOST:mysql}:${DB_PORT:3306}/${DB_NAME:odimall}?useSSL=false&allowPublicKeyRetrieval=true
+    username: ${DB_USER:odimall}
+    password: ${DB_PASSWORD:odimall123}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+
+services:
+  product-url: ${PRODUCT_SERVICE_URL:http://product-service:8082}
+  payment-url: ${PAYMENT_SERVICE_URL:http://payment-service:8086}
+  shipping-url: ${SHIPPING_SERVICE_URL:http://shipping-service:8087}
+  inventory-url: ${INVENTORY_SERVICE_URL:http://inventory-service:8088}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics

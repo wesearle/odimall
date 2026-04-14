@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-service
+  namespace: odimall
+  labels:
+    app: product-service
+    app.kubernetes.io/part-of: odimall
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: product-service
+  template:
+    metadata:
+      labels:
+        app: product-service
+        app.kubernetes.io/part-of: odimall
+    spec:
+      containers:
+        - name: product-service
+          image: wsearle/odimall:product-service
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8082
+          env:
+            - name: DB_HOST
+              value: "mysql"
+            - name: DB_PORT
+              value: "3306"
+            - name: DB_USER
+              value: "odimall"
+            - name: DB_PASSWORD
+              value: "odimall123"
+            - name: DB_NAME
+              value: "odimall"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: product-service
+  namespace: odimall
+  labels:
+    app: product-service
+    app.kubernetes.io/part-of: odimall
+spec:
+  selector:
+    app: product-service
+  ports:
+    - port: 8082
+      targetPort: 8082
