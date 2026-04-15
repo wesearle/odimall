@@ -55,6 +55,7 @@ A polyglot e-commerce microservices application built to showcase deep distribut
 | **shipping-service** | C++ | httplib (CMake) | 8087 | Shipping cost calculation |
 | **inventory-service** | Go 1.21 | Gorilla Mux | 8088 | Inventory management, Kafka producer |
 | **notification-service** | Go 1.21 | kafka-go | 8089 | Order notifications, Kafka consumer |
+| **load-generator** | Go 1.21 | net/http | — | Continuous traffic generator (configurable interval) |
 
 ## Infrastructure
 
@@ -127,17 +128,25 @@ When working, a purchase trace includes MySQL server-side spans (`COM_QUERY`, `p
 
 Both Go Kafka services use [`segmentio/kafka-go`](https://github.com/segmentio/kafka-go), which the Odigos Go eBPF agent instruments to capture `messaging.message.body` on both producer and consumer spans. This makes the full order event payload visible in traces.
 
-### Custom Java Code Instrumentation
+### Custom Code Instrumentation
 
-Define these class/method signatures in Odigos for custom span generation:
+Define these signatures in Odigos for custom span generation:
 
-**API Gateway — Request Processor:**
+**Java — API Gateway Request Processor:**
 - Class: `com.odimall.gateway.processor.OdiMallRequestProcessor`
 - Method: `processRequest(String requestId, String endpoint, String method)`
 
-**Order Service — Order Processor:**
+**Java — Order Service Order Processor:**
 - Class: `com.odimall.order.processor.OrderProcessor`
 - Method: `processOrder(String orderId, String sessionId, List items)`
+
+**Go — Inventory Service Reserve Handler:**
+- Package: `main`
+- Function: `reserveHandler`
+
+**Go — Notification Service Normal Message Processor:**
+- Package: `main`
+- Function: `processNormalMessage`
 
 ### Custom HTTP Headers
 
@@ -224,6 +233,7 @@ odimall/
 ├── product-service/       # Python/Flask — product catalog with SQL commenter
 ├── shipping-service/      # C++ — shipping cost calculation
 ├── user-service/          # Node.js/Express — user/shipping info
+├── load-generator/        # Go — continuous traffic generator
 ├── build-push.sh          # Multi-arch image build & push script
 └── README.md
 ```

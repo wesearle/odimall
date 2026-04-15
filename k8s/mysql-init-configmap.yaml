@@ -65,8 +65,8 @@ data:
     (10, 'Mountain Stream Water Filter', 'Gravity-fed filter system removing 99.99% of bacteria. Filters up to 1500 liters.', 34.99, '/images/filter.svg', 'Hydration');
 
     INSERT INTO inventory (product_id, quantity) VALUES
-    (1, 50), (2, 35), (3, 25), (4, 60), (5, 15),
-    (6, 10), (7, 40), (8, 100), (9, 75), (10, 80);
+    (1, 10000), (2, 10000), (3, 10000), (4, 10000), (5, 10000),
+    (6, 10000), (7, 10000), (8, 10000), (9, 10000), (10, 10000);
 
     CREATE USER IF NOT EXISTS 'odimall'@'%' IDENTIFIED BY 'odimall123';
     GRANT ALL PRIVILEGES ON odimall.* TO 'odimall'@'%';
