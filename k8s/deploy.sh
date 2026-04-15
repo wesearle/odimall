@@ -34,7 +34,7 @@ kubectl wait --namespace odimall \
   --selector=app=kafka \
   --timeout=90s
 
-echo "[5/5] Deploying microservices..."
+echo "[5/6] Deploying microservices..."
 kubectl apply \
   -f frontend.yaml \
   -f api-gateway.yaml \
@@ -59,6 +59,14 @@ for svc in frontend api-gateway product-service cart-service user-service \
     --timeout=120s
 done
 
+echo "[6/6] Deploying load generator..."
+kubectl apply -f load-generator.yaml
+echo "  Waiting for load-generator..."
+kubectl wait --namespace odimall \
+  --for=condition=ready pod \
+  --selector=app=load-generator \
+  --timeout=120s
+
 echo ""
 echo "=== Deployment complete! ==="
 echo ""
@@ -67,3 +75,6 @@ echo ""
 echo "To access the frontend:"
 echo "  kubectl port-forward -n odimall svc/frontend 8080:8080"
 echo "  Then open http://localhost:8080"
+echo ""
+echo "Load generator is running (default: every 5s)."
+echo "  To change frequency: kubectl set env -n odimall deployment/load-generator INTERVAL=30s"
