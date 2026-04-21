@@ -2,45 +2,6 @@
 
 A polyglot e-commerce microservices application built to showcase deep distributed tracing with [Odigos](https://odigos.io). Ten services, seven programming languages, MySQL, and Kafka — all observable without manual instrumentation.
 
-## Architecture
-
-```
-                         ┌──────────────────────────────┐
-                         │    Frontend (Node.js :8080)   │
-                         │   Adventure Gear E-Commerce   │
-                         └──────────────┬───────────────┘
-                                        │ /api/*
-                         ┌──────────────▼───────────────┐
-                         │  API Gateway (Java :8081)     │
-                         │  Custom HTTP Headers          │
-                         │  Request Processing           │
-                         └──┬─────┬─────┬─────┬─────────┘
-                            │     │     │     │
-               ┌────────────┘     │     │     └────────────────┐
-               ▼                  ▼     ▼                      ▼
-        ┌─────────────┐   ┌──────────┐ ┌──────────┐   ┌──────────────┐
-        │ Product Svc │   │ Cart Svc │ │ User Svc │   │ Order Svc    │
-        │ Python/Flask│   │ Ruby     │ │ Node.js  │   │ Java/Spring  │
-        │ :8082       │   │ :8083    │ │ :8084    │   │ :8085        │
-        └──────┬──────┘   └──────────┘ └──────────┘   └─┬──┬──┬──┬──┘
-               │                                         │  │  │  │
-               │              ┌──────────────────────────┘  │  │  │
-               │              │        ┌────────────────────┘  │  │
-               ▼              ▼        ▼                       ▼  │
-        ┌───────────┐  ┌──────────┐ ┌──────────┐  ┌──────────────┐│
-        │           │  │ Payment  │ │ Shipping │  │ Inventory    ││
-        │   MySQL   │◄─│ .NET     │ │ C++      │  │ Go :8088     ││
-        │           │  │ :8086    │ │ :8087    │  └───────┬──────┘│
-        │           │  └──────────┘ └──────────┘          │       │
-        │           │◄────────────────────────────────────┘       │
-        └───────────┘                                   Kafka     │
-                                                    ┌─────▼──────┐│
-                                                    │Notification││
-                                                    │Go :8089    ││
-                                                    └────────────┘│
-                                                    ◄─────────────┘
-```
-
 ## Services
 
 | Service | Language | Framework | Port | Description |
