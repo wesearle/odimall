@@ -1,4 +1,17 @@
 const express = require('express');
+const { writeSync } = require('fs');
+
+// Stdout is not a TTY in Kubernetes; console.log can be fully buffered and
+// kubectl logs appears empty until flush. writeSync(1, ...) is immediate.
+function logLine(message) {
+  try {
+    writeSync(1, `[user-service] ${message}\n`);
+  } catch {
+    console.error(message);
+  }
+}
+
+logLine(`boot pid=${process.pid} node=${process.version}`);
 
 const app = express();
 const PORT = process.env.PORT || 8084;
@@ -6,7 +19,7 @@ const PORT = process.env.PORT || 8084;
 app.use(express.json());
 
 app.use((req, res, next) => {
-  console.log(`[user-service] ${req.method} ${req.path}`);
+  logLine(`${req.method} ${req.path}`);
   next();
 });
 
@@ -21,7 +34,7 @@ app.post('/users/shipping', (req, res) => {
 
   const info = { name, address, city, state, zip, updatedAt: new Date().toISOString() };
   shippingStore.set(sessionId, info);
-  console.log(`[user-service] Stored shipping info for session ${sessionId}`);
+  logLine(`stored shipping for session ${sessionId}`);
 
   res.json({ success: true });
 });
@@ -35,5 +48,5 @@ app.get('/users/:sessionId/shipping', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`User service running on port ${PORT}`);
+  logLine(`listening on port ${PORT}`);
 });
