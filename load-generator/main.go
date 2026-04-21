@@ -98,6 +98,16 @@ type OrderRequest struct {
 	Shipping  Shipping    `json:"shipping"`
 }
 
+// Flat body for POST /users/shipping (same shape as the checkout UI).
+type userShippingPayload struct {
+	SessionID string `json:"sessionId"`
+	Name      string `json:"name"`
+	Address   string `json:"address"`
+	City      string `json:"city"`
+	State     string `json:"state"`
+	Zip       string `json:"zip"`
+}
+
 type Product struct {
 	ID       int     `json:"id"`
 	Name     string  `json:"name"`
@@ -162,6 +172,26 @@ func placeOrder(products []Product) error {
 			State:   states[cityIdx%len(states)],
 			Zip:     randZip(),
 		},
+	}
+
+	// Match checkout UI: persist shipping via user-service before placing the order.
+	// Without this call, user-service receives no traffic (load gen used to POST /orders only).
+	shipPayload, _ := json.Marshal(userShippingPayload{
+		SessionID: order.SessionID,
+		Name:      order.Shipping.Name,
+		Address:   order.Shipping.Address,
+		City:      order.Shipping.City,
+		State:     order.Shipping.State,
+		Zip:       order.Shipping.Zip,
+	})
+	shipResp, shipErr := client.Post(gatewayURL+"/users/shipping", "application/json", bytes.NewReader(shipPayload))
+	if shipErr != nil {
+		log.Printf("POST /users/shipping failed: %v (continuing with order)", shipErr)
+	} else {
+		shipResp.Body.Close()
+		if shipResp.StatusCode != 200 {
+			log.Printf("POST /users/shipping → HTTP %d (continuing with order)", shipResp.StatusCode)
+		}
 	}
 
 	body, _ := json.Marshal(order)
