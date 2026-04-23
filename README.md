@@ -95,7 +95,7 @@ Define these signatures when configuring custom rules:
 - Class: `com.odimall.order.processor.OrderProcessor`
 - Method: `processOrder`
 
-**Java — Retail fulfillment policy gate (Shadow Peak Mystery Crate Problem Pattern):**
+**Java — Order Service Retail fulfillment policy gate (Shadow Peak Mystery Crate Problem Pattern):**
 - Class: `com.odimall.order.policy.RetailFulfillmentGate`
 - Method: `assessPipelineCoherence`
 
