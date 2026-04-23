@@ -2,7 +2,7 @@
 set -e
 
 REGISTRY="wsearle/odimall"
-SERVICES=(frontend api-gateway product-service cart-service user-service order-service payment-service shipping-service inventory-service notification-service)
+SERVICES=(frontend api-gateway product-service cart-service user-service order-service payment-service shipping-service inventory-service notification-service load-generator)
 
 echo "=== OdiMall Docker Build & Push ==="
 echo "Registry: $REGISTRY"

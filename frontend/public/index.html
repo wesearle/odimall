@@ -131,6 +131,19 @@
     </div>
   </main>
 
+  <!-- Fatal checkout fault (order pipeline rejection) -->
+  <main id="pageCheckoutFatal" class="page page-checkout-fatal" style="display:none">
+    <div class="fatal-backdrop">
+      <div class="fatal-card">
+        <div class="fatal-icon" aria-hidden="true">⚠</div>
+        <h1 class="fatal-title">Checkout pipeline fault</h1>
+        <p class="fatal-lead">The storefront could not complete this checkout. The session is in an inconsistent state.</p>
+        <p class="fatal-detail">Do not retry the same cart without reloading. If you are debugging this demo, inspect backend telemetry for this request window.</p>
+        <button type="button" class="btn btn-primary btn-lg fatal-reload" onclick="location.reload()">Reload application</button>
+      </div>
+    </div>
+  </main>
+
   <!-- Loading overlay -->
   <div id="loadingOverlay" class="loading-overlay" style="display:none">
     <div class="spinner"></div>

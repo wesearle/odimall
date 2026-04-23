@@ -17,6 +17,9 @@ var (
 	client     = &http.Client{Timeout: 30 * time.Second}
 )
 
+// uiManualDemoProductID matches order-service RetailFulfillmentGate.MANUAL_FULFILLMENT_HOLD_SKU — storefront only.
+const uiManualDemoProductID = 11
+
 var firstNames = []string{
 	"James", "Emma", "Liam", "Olivia", "Noah", "Ava", "Ethan", "Sophia",
 	"Mason", "Isabella", "Lucas", "Mia", "Logan", "Charlotte", "Alexander",
@@ -113,6 +116,16 @@ type Product struct {
 	Name     string  `json:"name"`
 	Price    float64 `json:"price"`
 	Category string  `json:"category"`
+}
+
+func productsForAutomatedOrders(all []Product) []Product {
+	out := make([]Product, 0, len(all))
+	for _, p := range all {
+		if p.ID != uiManualDemoProductID {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 func fetchProducts() ([]Product, error) {
@@ -248,7 +261,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to fetch products: %v", err)
 	}
-	log.Printf("Loaded %d products", len(products))
+	automatedCatalog := productsForAutomatedOrders(products)
+	if len(automatedCatalog) == 0 {
+		log.Fatal("No products left for load generation after excluding UI-only demo SKU")
+	}
+	log.Printf("Loaded %d products (%d eligible for automated checkout)", len(products), len(automatedCatalog))
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -256,11 +273,11 @@ func main() {
 	for {
 		// 70% chance: place an order, 30% chance: just browse
 		if rand.Float64() < 0.7 {
-			if err := placeOrder(products); err != nil {
+			if err := placeOrder(automatedCatalog); err != nil {
 				log.Printf("Error placing order: %v", err)
 			}
 		} else {
-			browseProducts(products)
+			browseProducts(automatedCatalog)
 		}
 		<-ticker.C
 	}

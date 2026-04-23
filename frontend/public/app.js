@@ -8,6 +8,8 @@ const state = {
 };
 
 const CHAOS_PRODUCT_IDS = new Set([3, 5]);
+/** Matches order-service RetailFulfillmentGate.MANUAL_FULFILLMENT_HOLD_SKU — never bought by load generator. */
+const UI_INSTRUMENTATION_LAB_PRODUCT_ID = 11;
 
 let PRODUCT_DATA = [];
 
@@ -21,7 +23,8 @@ async function fetchProducts() {
       category: p.category,
       image: p.imageUrl,
       description: p.description,
-      chaos: CHAOS_PRODUCT_IDS.has(p.id)
+      chaos: CHAOS_PRODUCT_IDS.has(p.id),
+      uiLab: p.id === UI_INSTRUMENTATION_LAB_PRODUCT_ID
     }));
   } catch (e) {
     console.warn('Could not load products from API, using fallback', e);
@@ -35,7 +38,8 @@ async function fetchProducts() {
       { id: 7, name: 'Peak Performance Jacket', price: 219.99, category: 'Apparel', image: '/images/jacket.svg', chaos: false, description: 'Three-layer waterproof hardshell jacket with fully taped seams.' },
       { id: 8, name: 'Wilderness First Aid Kit', price: 49.99, category: 'Safety', image: '/images/firstaid.svg', chaos: false, description: 'Comprehensive 120-piece backcountry first aid kit.' },
       { id: 9, name: 'Canyon Explorer Headlamp', price: 39.99, category: 'Lighting', image: '/images/headlamp.svg', chaos: false, description: '350-lumen rechargeable headlamp with red night-vision mode.' },
-      { id: 10, name: 'Mountain Stream Water Filter', price: 34.99, category: 'Hydration', image: '/images/filter.svg', chaos: false, description: 'Portable hollow-fiber water filter that removes 99.99% of bacteria.' }
+      { id: 10, name: 'Mountain Stream Water Filter', price: 34.99, category: 'Hydration', image: '/images/filter.svg', chaos: false, description: 'Portable hollow-fiber water filter that removes 99.99% of bacteria.' },
+      { id: 11, name: 'Shadow Peak Mystery Crate', price: 59.99, category: 'Limited', image: '/images/mystery-crate.svg', chaos: false, uiLab: true, description: 'Limited surprise crate for live storefront demos. Automated load tests never purchase this SKU.' }
     ];
   }
 }
@@ -71,8 +75,11 @@ async function api(path, options = {}) {
   }
   const res = await fetch(url, config);
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'Request failed' }));
-    throw new Error(err.error || `HTTP ${res.status}`);
+    const body = await res.json().catch(() => ({}));
+    const msg = body.error || body.message || `HTTP ${res.status}`;
+    const e = new Error(msg);
+    e.status = res.status;
+    throw e;
   }
   return res.json();
 }
@@ -93,6 +100,26 @@ function setLoading(on) {
 }
 
 /* ===== Navigation ===== */
+function showCheckoutPipelineFault() {
+  document.getElementById('loadingOverlay').style.display = 'none';
+  const nav = document.querySelector('.navbar');
+  const foot = document.querySelector('.site-footer');
+  if (nav) nav.style.display = 'none';
+  if (foot) foot.style.display = 'none';
+  document.querySelectorAll('.page').forEach(p => {
+    p.style.display = 'none';
+  });
+  const fatal = document.getElementById('pageCheckoutFatal');
+  if (fatal) {
+    fatal.style.display = 'block';
+  }
+  state.currentPage = 'fatal';
+  // Surface an uncaught error so devtools shows a hard failure after the fault UI paints.
+  setTimeout(() => {
+    throw new Error('CHECKOUT_PIPELINE_HALTED');
+  }, 0);
+}
+
 function showPage(pageId) {
   document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
   const page = document.getElementById(pageId);
@@ -119,6 +146,7 @@ function renderCatalog(filter = 'all') {
   grid.innerHTML = products.map(p => `
     <div class="product-card" onclick="showProductDetail(${p.id})">
       <div class="product-card-img">
+        ${p.uiLab ? '<span class="instrumentation-lab-badge">Odigos lab — UI checkout only</span>' : ''}
         ${p.chaos ? '<span class="chaos-badge">⚡ Demo Chaos</span>' : ''}
         <img src="${p.image}" alt="${p.name}">
       </div>
@@ -164,6 +192,7 @@ function showProductDetail(id) {
     <div class="detail-info">
       <span class="detail-category">${product.category}</span>
       <h1>${product.name}</h1>
+      ${product.uiLab ? '<div class="detail-instrumentation-lab">Odigos lab SKU — only a human using this storefront can buy it; checkout may hard-fail by design for telemetry exercises.</div>' : ''}
       ${product.chaos ? '<div class="detail-chaos">⚡ Demo Chaos — This item triggers simulated issues</div>' : ''}
       <div class="detail-price">$${product.price.toFixed(2)}</div>
       <p class="detail-description">${product.description}</p>
@@ -416,7 +445,12 @@ async function placeOrder(e) {
     updateCartBadge();
     showConfirmation(order, items, shipping);
   } catch (err) {
-    showToast(err.message || 'Failed to place order. Please try again.', 'error');
+    if (err.status === 409) {
+      showToast('Checkout was rejected by the order service.', 'error');
+      showCheckoutPipelineFault();
+    } else {
+      showToast(err.message || 'Failed to place order. Please try again.', 'error');
+    }
   } finally {
     setLoading(false);
     btn.disabled = false;

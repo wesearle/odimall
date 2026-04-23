@@ -62,11 +62,12 @@ data:
     (7, 'Peak Performance Jacket', '3-layer Gore-Tex shell with helmet-compatible hood. Pit zips and adjustable cuffs.', 219.99, '/images/jacket.svg', 'Apparel'),
     (8, 'Wilderness First Aid Kit', 'Comprehensive 120-piece kit for backcountry emergencies. Waterproof case included.', 49.99, '/images/firstaid.svg', 'Safety'),
     (9, 'Canyon Explorer Headlamp', '800 lumen rechargeable headlamp with red night mode. IPX8 waterproof rating.', 39.99, '/images/headlamp.svg', 'Lighting'),
-    (10, 'Mountain Stream Water Filter', 'Gravity-fed filter system removing 99.99% of bacteria. Filters up to 1500 liters.', 34.99, '/images/filter.svg', 'Hydration');
+    (10, 'Mountain Stream Water Filter', 'Gravity-fed filter system removing 99.99% of bacteria. Filters up to 1500 liters.', 34.99, '/images/filter.svg', 'Hydration'),
+    (11, 'Shadow Peak Mystery Crate', 'Limited “surprise” crate for in-store demos. Checkout is restricted to the live storefront; automated buyers cannot purchase this SKU.', 59.99, '/images/mystery-crate.svg', 'Limited');
 
     INSERT INTO inventory (product_id, quantity) VALUES
     (1, 10000), (2, 10000), (3, 10000), (4, 10000), (5, 10000),
-    (6, 10000), (7, 10000), (8, 10000), (9, 10000), (10, 10000);
+    (6, 10000), (7, 10000), (8, 10000), (9, 10000), (10, 10000), (11, 10000);
 
     CREATE USER IF NOT EXISTS 'odimall'@'%' IDENTIFIED BY 'odimall123';
     GRANT ALL PRIVILEGES ON odimall.* TO 'odimall'@'%';

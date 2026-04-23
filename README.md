@@ -91,15 +91,24 @@ Both Go Kafka services use [`segmentio/kafka-go`](https://github.com/segmentio/k
 
 ### Custom Code Instrumentation
 
-Define these signatures in Odigos for custom span generation:
+OdiMall includes several **Java and Go** entry points that are useful targets for Odigos **custom instrumentation** (extra spans / richer attributes on business logic). How you register them depends on your Odigos edition and agent:
+
+- **VM Agent custom instrumentation rules** (YAML / `odictl`): arbitrary Java methods by **fully qualified class name** and **method name** — see Odigos docs: [Custom Instrumentation](https://docs.odigos.io/vmagent/setup/configuration/instrumentation-rules/custom-instrumentation).
+- **Native Java auto-instrumentation** (OpenTelemetry Java agent): covers frameworks and libraries; it does **not** automatically wrap arbitrary application methods until you add a supported custom rule or manual OTel code.
+
+Define these signatures when configuring custom rules (Java uses `className` + `methodName` only; parameter types are not part of the rule):
 
 **Java — API Gateway Request Processor:**
 - Class: `com.odimall.gateway.processor.OdiMallRequestProcessor`
-- Method: `processRequest(String requestId, String endpoint, String method)`
+- Method: `processRequest`
 
 **Java — Order Service Order Processor:**
 - Class: `com.odimall.order.processor.OrderProcessor`
-- Method: `processOrder(String orderId, String sessionId, List items)`
+- Method: `processOrder`
+
+**Java — Retail fulfillment policy gate (Shadow Peak / Odigos lab SKU — see below):**
+- Class: `com.odimall.order.policy.RetailFulfillmentGate`
+- Method: `assessPipelineCoherence`
 
 **Go — Inventory Service Reserve Handler:**
 - Package: `main`
@@ -108,6 +117,37 @@ Define these signatures in Odigos for custom span generation:
 **Go — Notification Service Normal Message Processor:**
 - Package: `main`
 - Function: `processNormalMessage`
+
+#### Enabling custom instrumentation for RetailFulfillmentGate (Shadow Peak demo)
+
+Product **#11 — Shadow Peak Mystery Crate** is rejected during checkout by `RetailFulfillmentGate.assessPipelineCoherence`. The order service returns **HTTP 409** with a **generic** message (`Checkout could not be completed`) and **does not log** the internal denial payload. That is deliberate: the “what went wrong” story lives in the **method arguments** and **return value** of `assessPipelineCoherence`, which you surface by attaching Odigos custom instrumentation to that method.
+
+1. Ensure **`order-service`** is selected as an Odigos source / instrumented workload (same as your normal Java tracing).
+2. Add a **CustomInstrumentation** rule for the VM Agent (or equivalent in your deployment) with:
+
+```yaml
+name: odimall-retail-fulfillment-gate
+type: CustomInstrumentation
+config:
+  java:
+    - className: "com.odimall.order.policy.RetailFulfillmentGate"
+      methodName: "assessPipelineCoherence"
+```
+
+3. Apply the rule using **`odictl`** or your GitOps process as described in the [Odigos custom instrumentation](https://docs.odigos.io/vmagent/setup/configuration/instrumentation-rules/custom-instrumentation) documentation, then **roll the `order-service` deployment** if required so pods pick up the new configuration.
+
+**What to expect after the rule is active**
+
+- In traces for a failed checkout, a span (or enriched data) for **`assessPipelineCoherence`** should show:
+  - **Arguments:** `sessionId` and `enrichedLineItems` — line item maps include `productId` → **11** when the Shadow Peak crate is in the cart.
+  - **Return value:** a `RetailPipelineAssessment` with `retailContinuationGranted=false` and `fulfillmentLedgerAttestation` set to a pipe-delimited string such as  
+    `PIPELINE_HALT|cause=MANUAL_FULFILLMENT_SKU_IN_CART|skuId=11|hint=instrument_RetailFulfillmentGate_assessPipelineCoherence_args_and_return|...`
+- In **Grafana** (or any backend consuming OTLP), filter traces by `order-service` and the checkout time window; open the custom-instrumented span to inspect captured fields (exact attribute names depend on the Odigos agent version).
+
+**Storefront behavior (no custom instrumentation)**
+
+- The UI shows a **checkout pipeline fault** full-screen state and an uncaught **`CHECKOUT_PIPELINE_HALTED`** error in the browser console.
+- The **load generator never purchases product 11**; only a human using the web UI can trigger this path.
 
 ### Custom HTTP Headers
 
@@ -140,7 +180,7 @@ Frontend (POST /api/orders)
 
 ## Problem Patterns
 
-Two products trigger deliberate issues visible in traces:
+Several catalog items exist to demo tracing and policy behavior:
 
 ### Storm Chaser Tent 4P (Product #5) — Kafka Issue
 
@@ -163,20 +203,42 @@ When purchased, the order service:
 - The lock timeout exception is caught; the order still completes
 - Creates a visible lock contention pattern in database traces
 
+### Shadow Peak Mystery Crate (Product #11) — Odigos lab / policy denial
+
+- Listed in the catalog as an **Odigos lab** SKU (storefront only). The **load generator excludes** this product ID so automated traffic never hits it.
+- When a **human** checks out with this item in the cart, **`RetailFulfillmentGate.assessPipelineCoherence`** denies the order before persistence; the API responds with **409 Conflict** and a generic message.
+- **Without** custom instrumentation on that method, logs and HTTP responses do not explain the denial; **with** instrumentation, inspect **arguments** and **`RetailPipelineAssessment`** (especially `fulfillmentLedgerAttestation`) as described in [Enabling custom instrumentation for RetailFulfillmentGate (Shadow Peak demo)](#enabling-custom-instrumentation-for-retailfulfillmentgate-shadow-peak-demo).
+
 ## Products
 
-| # | Name | Price | Category | Chaos |
+| # | Name | Price | Category | Notes |
 |---|------|-------|----------|-------|
 | 1 | Trail Blazer Hiking Boots | $129.99 | Footwear | |
 | 2 | Summit Backpack 65L | $189.99 | Packs | |
-| 3 | Glacier Sleeping Bag | $149.99 | Sleep | DB Lock |
+| 3 | Glacier Sleeping Bag | $149.99 | Sleep | DB lock demo |
 | 4 | Alpine Trekking Poles | $79.99 | Accessories | |
-| 5 | Storm Chaser Tent 4P | $299.99 | Shelter | Kafka chaos |
+| 5 | Storm Chaser Tent 4P | $299.99 | Shelter | Kafka chaos demo |
 | 6 | Rapid River Kayak | $499.99 | Water | |
 | 7 | Peak Performance Jacket | $219.99 | Apparel | |
 | 8 | Wilderness First Aid Kit | $49.99 | Safety | |
 | 9 | Canyon Explorer Headlamp | $39.99 | Lighting | |
 | 10 | Mountain Stream Water Filter | $34.99 | Hydration | |
+| 11 | Shadow Peak Mystery Crate | $59.99 | Limited | UI-only; policy / Odigos lab |
+
+### Adding product #11 to an existing MySQL database
+
+`k8s/mysql-init-configmap.yaml` is only applied on **first** MySQL initialization. If your cluster already has a volume with the old seed data, run the following once against the **`odimall`** database (for example via `kubectl exec` into MySQL):
+
+```sql
+INSERT INTO products (id, name, description, price, image_url, category)
+SELECT 11, 'Shadow Peak Mystery Crate',
+  'Limited surprise crate for in-store demos. Checkout is restricted to the live storefront; automated buyers cannot purchase this SKU.',
+  59.99, '/images/mystery-crate.svg', 'Limited'
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM products WHERE id = 11);
+
+INSERT INTO inventory (product_id, quantity)
+SELECT 11, 10000 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM inventory WHERE product_id = 11);
+```
 
 ## Project Structure
 

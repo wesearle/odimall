@@ -1,8 +1,12 @@
 package com.odimall.order.processor;
 
+import com.odimall.order.policy.RetailFulfillmentGate;
+import com.odimall.order.policy.RetailPipelineAssessment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -17,6 +21,11 @@ public class OrderProcessor {
 
     private final AtomicLong ordersProcessed = new AtomicLong(0);
     private final AtomicLong totalItemsProcessed = new AtomicLong(0);
+    private final RetailFulfillmentGate retailFulfillmentGate;
+
+    public OrderProcessor(RetailFulfillmentGate retailFulfillmentGate) {
+        this.retailFulfillmentGate = retailFulfillmentGate;
+    }
 
     private static final BigDecimal TAX_RATE = new BigDecimal("0.08");
     private static final BigDecimal FREE_SHIPPING_THRESHOLD = new BigDecimal("50.00");
@@ -33,6 +42,13 @@ public class OrderProcessor {
         logger.info("Processing order={} session={} itemCount={}", orderId, sessionId, items.size());
 
         List<Map<String, Object>> validatedItems = validateAndEnrichItems(items);
+
+        RetailPipelineAssessment pipeline = retailFulfillmentGate.assessPipelineCoherence(sessionId, validatedItems);
+        if (!pipeline.isRetailContinuationGranted()) {
+            // Denial rationale is only on RetailPipelineAssessment (see Odigos custom instrumentation on
+            // RetailFulfillmentGate#assessPipelineCoherence); keep HTTP surface generic for the storefront.
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Checkout could not be completed");
+        }
 
         BigDecimal subtotal = BigDecimal.ZERO;
         int totalQuantity = 0;

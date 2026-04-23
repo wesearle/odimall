@@ -1,0 +1,48 @@
+package com.odimall.order.policy;
+
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+
+/**
+ * Retail fulfillment policy gate. The {@link #assessPipelineCoherence(String, List)} method is
+ * the intended Odigos <strong>custom instrumentation</strong> hook: when checkout is denied for
+ * the demo SKU, the denial reason exists only in the method arguments and return value
+ * ({@link RetailPipelineAssessment#getFulfillmentLedgerAttestation()}), not in logs.
+ */
+@Component
+public class RetailFulfillmentGate {
+
+    /**
+     * “Shadow Peak” mystery crate — UI-only demo SKU (load generator must never purchase this).
+     */
+    public static final long MANUAL_FULFILLMENT_HOLD_SKU = 11L;
+
+    /**
+     * Pre-flight coherence check for checkout. Outcome is {@link RetailPipelineAssessment#isRetailContinuationGranted()}.
+     * Diagnostic detail for denied paths is carried exclusively in {@link RetailPipelineAssessment#getFulfillmentLedgerAttestation()}.
+     */
+    public RetailPipelineAssessment assessPipelineCoherence(String sessionId,
+                                                              List<Map<String, Object>> enrichedLineItems) {
+        boolean manualHoldSkuPresent = enrichedLineItems.stream().anyMatch(line -> {
+            Object pid = line.get("productId");
+            if (pid == null) {
+                return false;
+            }
+            long id = ((Number) pid).longValue();
+            return id == MANUAL_FULFILLMENT_HOLD_SKU;
+        });
+
+        if (!manualHoldSkuPresent) {
+            return new RetailPipelineAssessment(true,
+                    "PIPELINE_CLEAR|retail_continuation=true|manual_hold_skus=none");
+        }
+
+        return new RetailPipelineAssessment(false,
+                "PIPELINE_HALT|cause=MANUAL_FULFILLMENT_SKU_IN_CART|skuId=" + MANUAL_FULFILLMENT_HOLD_SKU
+                        + "|hint=instrument_RetailFulfillmentGate_assessPipelineCoherence_args_and_return"
+                        + "|sessionCorrelation=" + Integer.toHexString(Objects.hashCode(sessionId)));
+    }
+}
