@@ -10,6 +10,16 @@ const RUM_ENABLED = String(process.env.RUM_ENABLED || '').toLowerCase() === 'tru
 const RUM_PROXY_TARGET = process.env.RUM_PROXY_TARGET || 'http://127.0.0.1:9998';
 
 const INDEX_PATH = path.join(__dirname, 'public', 'index.html');
+const RUM_BUNDLE_PATH = path.join(__dirname, 'public', 'rum.bundle.js');
+/** Bust browser cache whenever the shipped bundle file changes (e.g. new image). */
+const RUM_BUNDLE_QUERY = (() => {
+  try {
+    return `?v=${Math.floor(fs.statSync(RUM_BUNDLE_PATH).mtimeMs)}`;
+  } catch {
+    return `?v=${Date.now()}`;
+  }
+})();
+
 let indexTemplate = null;
 
 function loadIndexTemplate() {
@@ -24,7 +34,7 @@ function buildRumInjection() {
     return '<script>window.__ODIMALL_RUM__={enabled:false};</script>';
   }
   const url = '/faro';
-  return `<script>window.__ODIMALL_RUM__={enabled:true,url:${JSON.stringify(url)},version:"1.0.0"};</script><script src="/rum.bundle.js"></script>`;
+  return `<script>window.__ODIMALL_RUM__={enabled:true,url:${JSON.stringify(url)},version:"1.0.0"};</script><script src="/rum.bundle.js${RUM_BUNDLE_QUERY}"></script>`;
 }
 
 app.use('/api', createProxyMiddleware({
@@ -49,6 +59,11 @@ if (RUM_ENABLED) {
   }));
 }
 
+// Faro bundle must not be sticky-cached across deploys (service name / SDK changes).
+app.get('/rum.bundle.js', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.sendFile(RUM_BUNDLE_PATH);
+});
 app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
 app.get('*', (req, res) => {
