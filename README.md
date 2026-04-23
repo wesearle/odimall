@@ -34,7 +34,7 @@ A polyglot e-commerce microservices application built to showcase deep distribut
 - `kubectl` configured to point at your cluster
 - Container images available at `wsearle/odimall:*` (pre-built)
 
-### Deploy without browser instrumentation
+### Deploy OdiMall Without Grafana Faro (Browser SDK)
 
 ```bash
 cd k8s
@@ -42,7 +42,7 @@ chmod +x deploy.sh
 ./deploy.sh
 ```
 
-### Deploy OdiMall with Grafana Faro (Browser SDK)
+### Deploy OdiMall With Grafana Faro (Browser SDK)
 
 **What gets enabled**
 
