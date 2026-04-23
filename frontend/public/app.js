@@ -11,7 +11,25 @@ const CHAOS_PRODUCT_IDS = new Set([3, 5]);
 /** Matches order-service RetailFulfillmentGate.MANUAL_FULFILLMENT_HOLD_SKU — never bought by load generator. */
 const UI_INSTRUMENTATION_LAB_PRODUCT_ID = 11;
 
+/** Shipped with the UI so the Odigos lab SKU appears even when MySQL was never migrated (existing clusters). */
+const SHADOW_PEAK_MYSTERY_CRATE = {
+  id: UI_INSTRUMENTATION_LAB_PRODUCT_ID,
+  name: 'Shadow Peak Mystery Crate',
+  price: 59.99,
+  category: 'Limited',
+  image: '/images/mystery-crate.svg',
+  chaos: false,
+  uiLab: true,
+  description: 'Limited surprise crate for live storefront demos. Automated load tests never purchase this SKU.'
+};
+
 let PRODUCT_DATA = [];
+
+function ensureShadowPeakProductInCatalog() {
+  if (PRODUCT_DATA.some(p => p.id === UI_INSTRUMENTATION_LAB_PRODUCT_ID)) return;
+  PRODUCT_DATA.push({ ...SHADOW_PEAK_MYSTERY_CRATE });
+  PRODUCT_DATA.sort((a, b) => a.id - b.id);
+}
 
 async function fetchProducts() {
   try {
@@ -26,6 +44,8 @@ async function fetchProducts() {
       chaos: CHAOS_PRODUCT_IDS.has(p.id),
       uiLab: p.id === UI_INSTRUMENTATION_LAB_PRODUCT_ID
     }));
+    // MySQL init.sql only runs on first PVC; older clusters often lack id=11 until someone runs the README INSERTs.
+    ensureShadowPeakProductInCatalog();
   } catch (e) {
     console.warn('Could not load products from API, using fallback', e);
     PRODUCT_DATA = [
@@ -39,7 +59,7 @@ async function fetchProducts() {
       { id: 8, name: 'Wilderness First Aid Kit', price: 49.99, category: 'Safety', image: '/images/firstaid.svg', chaos: false, description: 'Comprehensive 120-piece backcountry first aid kit.' },
       { id: 9, name: 'Canyon Explorer Headlamp', price: 39.99, category: 'Lighting', image: '/images/headlamp.svg', chaos: false, description: '350-lumen rechargeable headlamp with red night-vision mode.' },
       { id: 10, name: 'Mountain Stream Water Filter', price: 34.99, category: 'Hydration', image: '/images/filter.svg', chaos: false, description: 'Portable hollow-fiber water filter that removes 99.99% of bacteria.' },
-      { id: 11, name: 'Shadow Peak Mystery Crate', price: 59.99, category: 'Limited', image: '/images/mystery-crate.svg', chaos: false, uiLab: true, description: 'Limited surprise crate for live storefront demos. Automated load tests never purchase this SKU.' }
+      { ...SHADOW_PEAK_MYSTERY_CRATE }
     ];
   }
 }
