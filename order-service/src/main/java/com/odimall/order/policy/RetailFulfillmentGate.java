@@ -9,8 +9,8 @@ import java.util.Objects;
 /**
  * Retail fulfillment policy gate. The {@link #assessPipelineCoherence(String, List)} method is
  * the intended Odigos <strong>custom instrumentation</strong> hook: when checkout is denied for
- * the demo SKU, the denial reason exists only in the method arguments and return value
- * ({@link RetailPipelineAssessment#getFulfillmentLedgerAttestation()}), not in logs.
+ * the demo SKU, the denial reason is in method arguments and in the return value’s
+ * {@link RetailPipelineAssessment#toString()} (for Odigos {@code return.value}), not in logs.
  */
 @Component
 public class RetailFulfillmentGate {
@@ -22,7 +22,8 @@ public class RetailFulfillmentGate {
 
     /**
      * Pre-flight coherence check for checkout. Outcome is {@link RetailPipelineAssessment#isRetailContinuationGranted()}.
-     * Diagnostic detail for denied paths is carried exclusively in {@link RetailPipelineAssessment#getFulfillmentLedgerAttestation()}.
+     * Diagnostic detail is in {@link RetailPipelineAssessment#getFulfillmentLedgerAttestation()} and
+     * {@link RetailPipelineAssessment#toString()} for tooling that captures return values as strings.
      */
     public RetailPipelineAssessment assessPipelineCoherence(String sessionId,
                                                               List<Map<String, Object>> enrichedLineItems) {

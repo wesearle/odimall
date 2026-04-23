@@ -45,8 +45,7 @@ public class OrderProcessor {
 
         RetailPipelineAssessment pipeline = retailFulfillmentGate.assessPipelineCoherence(sessionId, validatedItems);
         if (!pipeline.isRetailContinuationGranted()) {
-            // Denial rationale is only on RetailPipelineAssessment (see Odigos custom instrumentation on
-            // RetailFulfillmentGate#assessPipelineCoherence); keep HTTP surface generic for the storefront.
+            // Denial rationale is on RetailPipelineAssessment / toString() for Odigos; keep HTTP generic.
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Checkout could not be completed");
         }
 

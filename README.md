@@ -120,7 +120,7 @@ Define these signatures when configuring custom rules (Java uses `className` + `
 
 #### Enabling custom instrumentation for RetailFulfillmentGate (Shadow Peak demo)
 
-Product **#11 — Shadow Peak Mystery Crate** is rejected during checkout by `RetailFulfillmentGate.assessPipelineCoherence`. The order service returns **HTTP 409** with a **generic** message (`Checkout could not be completed`) and **does not log** the internal denial payload. That is deliberate: the “what went wrong” story lives in the **method arguments** and **return value** of `assessPipelineCoherence`, which you surface by attaching Odigos custom instrumentation to that method.
+Product **#11 — Shadow Peak Mystery Crate** is rejected during checkout by `RetailFulfillmentGate.assessPipelineCoherence`. The order service returns **HTTP 409** with a **generic** message (`Checkout could not be completed`) and **does not log** the internal denial payload. That is deliberate: the “what went wrong” story lives in the **method arguments** and the **return value** of `assessPipelineCoherence`, which you surface with Odigos custom instrumentation. The Java type `RetailPipelineAssessment` overrides **`toString()`** so the agent’s **`return.value`** field is a readable line (including `fulfillmentLedgerAttestation`), not the default `Class@hashCode`.
 
 1. Ensure **`order-service`** is selected as an Odigos source / instrumented workload (same as your normal Java tracing).
 2. Add a **CustomInstrumentation** rule for the VM Agent (or equivalent in your deployment) with:
@@ -140,8 +140,9 @@ config:
 
 - In traces for a failed checkout, a span (or enriched data) for **`assessPipelineCoherence`** should show:
   - **Arguments:** `sessionId` and `enrichedLineItems` — line item maps include `productId` → **11** when the Shadow Peak crate is in the cart.
-  - **Return value:** a `RetailPipelineAssessment` with `retailContinuationGranted=false` and `fulfillmentLedgerAttestation` set to a pipe-delimited string such as  
-    `PIPELINE_HALT|cause=MANUAL_FULFILLMENT_SKU_IN_CART|skuId=11|hint=instrument_RetailFulfillmentGate_assessPipelineCoherence_args_and_return|...`
+  - **Return value:** the string from `RetailPipelineAssessment.toString()`, for example  
+    `RetailPipelineAssessment{retailContinuationGranted=false, fulfillmentLedgerAttestation=PIPELINE_HALT|cause=MANUAL_FULFILLMENT_SKU_IN_CART|skuId=11|...}`  
+    (Odigos records this as **`return.value`**; it is not the opaque `RetailPipelineAssessment@…` default `Object.toString()`.)
 - In **Grafana** (or any backend consuming OTLP), filter traces by `order-service` and the checkout time window; open the custom-instrumented span to inspect captured fields (exact attribute names depend on the Odigos agent version).
 
 **Storefront behavior (no custom instrumentation)**
@@ -207,7 +208,7 @@ When purchased, the order service:
 
 - Listed in the catalog as an **Odigos lab** SKU (storefront only). The **load generator excludes** this product ID so automated traffic never hits it.
 - When a **human** checks out with this item in the cart, **`RetailFulfillmentGate.assessPipelineCoherence`** denies the order before persistence; the API responds with **409 Conflict** and a generic message.
-- **Without** custom instrumentation on that method, logs and HTTP responses do not explain the denial; **with** instrumentation, inspect **arguments** and **`RetailPipelineAssessment`** (especially `fulfillmentLedgerAttestation`) as described in [Enabling custom instrumentation for RetailFulfillmentGate (Shadow Peak demo)](#enabling-custom-instrumentation-for-retailfulfillmentgate-shadow-peak-demo).
+- **Without** custom instrumentation on that method, logs and HTTP responses do not explain the denial; **with** instrumentation, inspect **arguments** and **`return.value`** (from `RetailPipelineAssessment.toString()`, containing the attestation) as described in [Enabling custom instrumentation for RetailFulfillmentGate (Shadow Peak demo)](#enabling-custom-instrumentation-for-retailfulfillmentgate-shadow-peak-demo).
 
 ## Products
 

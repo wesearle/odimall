@@ -2,9 +2,10 @@ package com.odimall.order.policy;
 
 /**
  * Outcome of {@link RetailFulfillmentGate#assessPipelineCoherence(String, java.util.List)}.
- * <p>When {@link #retailContinuationGranted} is {@code false}, operators are expected to use
- * custom instrumentation (e.g. Odigos) on that method to inspect the return value and arguments—
- * the attestation string is intentionally not written to application logs.
+ * <p>When {@link #retailContinuationGranted} is {@code false}, operators use Odigos custom
+ * instrumentation on that method. The eBPF agent usually records {@code return.value} from
+ * {@link #toString()} (not field reflection), so {@link #toString()} embeds the ledger attestation
+ * for a readable trace. The attestation is still intentionally not written to application logs.
  */
 public final class RetailPipelineAssessment {
 
@@ -25,5 +26,15 @@ public final class RetailPipelineAssessment {
      */
     public String getFulfillmentLedgerAttestation() {
         return fulfillmentLedgerAttestation;
+    }
+
+    /**
+     * Surfaces policy outcome as one line so tools that stringify the return value (e.g. Odigos
+     * custom instrumentation {@code return.value}) show the ledger instead of {@code Class@hash}.
+     */
+    @Override
+    public String toString() {
+        return "RetailPipelineAssessment{retailContinuationGranted=" + retailContinuationGranted
+                + ", fulfillmentLedgerAttestation=" + fulfillmentLedgerAttestation + '}';
     }
 }
