@@ -75,15 +75,7 @@ OdiMall is designed to produce rich, end-to-end distributed traces when instrume
 
 ### Trace Context Propagation through MySQL (SQL Commenter)
 
-Three services propagate trace context into MySQL via [SQL commenter](https://google.github.io/sqlcommenter/), enabling Odigos to stitch MySQL server-side eBPF spans into the calling trace:
-
-| Service | Implementation |
-|---------|---------------|
-| **product-service** (Python) | `google-cloud-sqlcommenter` with `with_opentelemetry=True` via SQLAlchemy |
-| **order-service** (Java) | Manual `TraceContextHolder` that appends `/*traceparent='...'*/` from the HTTP header |
-| **inventory-service** (Go) | Manual `sqlComment` helper that reads `Traceparent` from the HTTP header |
-
-When working, a purchase trace includes MySQL server-side spans (`COM_QUERY`, `parse_sql`, `mysql_execute_command`, `ha_external_lock`) stitched directly under the calling service's SQL client spans.
+Three services propagate trace context into MySQL (product-service, order-service, and inventory-service) via [SQL commenter](https://google.github.io/sqlcommenter/), enabling Odigos to stitch MySQL server-side eBPF spans into the calling trace:
 
 ### Kafka Message Body in Spans
 
