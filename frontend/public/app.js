@@ -7,7 +7,7 @@ const state = {
   shipping: {}
 };
 
-const CHAOS_PRODUCT_IDS = new Set([3, 5]);
+const CHAOS_PRODUCT_IDS = new Set([3, 5, 11]);
 /** Matches order-service RetailFulfillmentGate.MANUAL_FULFILLMENT_HOLD_SKU — never bought by load generator. */
 const UI_INSTRUMENTATION_LAB_PRODUCT_ID = 11;
 
@@ -18,8 +18,7 @@ const SHADOW_PEAK_MYSTERY_CRATE = {
   price: 59.99,
   category: 'Limited',
   image: '/images/mystery-crate.svg',
-  chaos: false,
-  uiLab: true,
+  chaos: true,
   description: 'Limited surprise crate for live storefront demos. Automated load tests never purchase this SKU.'
 };
 
@@ -41,8 +40,7 @@ async function fetchProducts() {
       category: p.category,
       image: p.imageUrl,
       description: p.description,
-      chaos: CHAOS_PRODUCT_IDS.has(p.id),
-      uiLab: p.id === UI_INSTRUMENTATION_LAB_PRODUCT_ID
+      chaos: CHAOS_PRODUCT_IDS.has(p.id)
     }));
     // MySQL init.sql only runs on first PVC; older clusters often lack id=11 until someone runs the README INSERTs.
     ensureShadowPeakProductInCatalog();
@@ -166,7 +164,6 @@ function renderCatalog(filter = 'all') {
   grid.innerHTML = products.map(p => `
     <div class="product-card" onclick="showProductDetail(${p.id})">
       <div class="product-card-img">
-        ${p.uiLab ? '<span class="instrumentation-lab-badge">Odigos lab — UI checkout only</span>' : ''}
         ${p.chaos ? '<span class="chaos-badge">⚡ Demo Chaos</span>' : ''}
         <img src="${p.image}" alt="${p.name}">
       </div>
@@ -212,7 +209,6 @@ function showProductDetail(id) {
     <div class="detail-info">
       <span class="detail-category">${product.category}</span>
       <h1>${product.name}</h1>
-      ${product.uiLab ? '<div class="detail-instrumentation-lab">Odigos lab SKU — only a human using this storefront can buy it; checkout may hard-fail by design for telemetry exercises.</div>' : ''}
       ${product.chaos ? '<div class="detail-chaos">⚡ Demo Chaos — This item triggers simulated issues</div>' : ''}
       <div class="detail-price">$${product.price.toFixed(2)}</div>
       <p class="detail-description">${product.description}</p>

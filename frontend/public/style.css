@@ -294,23 +294,6 @@ body {
   z-index: 2;
 }
 
-.instrumentation-lab-badge {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  background: linear-gradient(135deg, #5a189a, #4361ee);
-  color: white;
-  font-size: 0.62rem;
-  font-weight: 700;
-  padding: 3px 8px;
-  border-radius: 4px;
-  letter-spacing: 0.25px;
-  box-shadow: 0 2px 6px rgba(67, 97, 238, 0.35);
-  z-index: 2;
-  max-width: 52%;
-  line-height: 1.2;
-}
-
 .product-card-body { padding: 16px 20px 20px; }
 
 .product-category {
@@ -443,20 +426,6 @@ body {
   border-radius: var(--radius-xs);
   margin-bottom: 20px;
   border: 1px solid #f5c6cb;
-}
-
-.detail-instrumentation-lab {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: linear-gradient(135deg, #f3f0ff, #e0e7ff);
-  color: #3c096c;
-  font-size: 0.8rem;
-  font-weight: 600;
-  padding: 8px 14px;
-  border-radius: var(--radius-xs);
-  margin-bottom: 20px;
-  border: 1px solid #c4b5fd;
 }
 
 /* ===== Fatal checkout fault ===== */
