@@ -12,3 +12,28 @@ rumEndpoint: ""
 alloy:
   image: grafana/alloy:v1.10.2
   stabilityLevel: experimental
+
+# Product blurb: POST /products/{id}/ai-summary
+# aiMode=demo — local template, no external LLM.
+# aiMode=openai — OpenAI SDK (OPENAI_API_KEY).
+# aiMode=gemini — Google Generative AI SDK (GEMINI_API_KEY); enable productService.gemini and patch Secret.
+productService:
+  aiMode: demo
+  openaiModel: gpt-4o-mini
+  # New AI Studio keys often cannot use gemini-2.0-flash; 2.5 Flash is the current GA default.
+  geminiModel: gemini-2.5-flash
+  # Deprecated: use productService.openai.secretName. Still honored if set.
+  openaiApiKeySecretName: ""
+  openaiApiKeySecretKey: ""
+  openai:
+    enabled: true
+    createSecret: true
+    secretName: ""
+    secretKey: OPENAI_API_KEY
+    dummyApiKey: "sk-replace-me-with-your-openai-key"
+  gemini:
+    enabled: false
+    createSecret: true
+    secretName: ""
+    secretKey: GEMINI_API_KEY
+    dummyApiKey: "replace-me-with-your-gemini-api-key"

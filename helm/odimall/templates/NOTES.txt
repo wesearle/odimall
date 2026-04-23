@@ -8,6 +8,27 @@ Grafana Faro RUM is enabled: the frontend proxies browser telemetry to Alloy
 Use the storefront in a real browser (not only the load generator) so Faro can send data.
 
 {{- end }}
+{{- if or .Values.productService.openai.enabled .Values.productService.gemini.enabled }}
+
+Product blurb: **aiMode={{ .Values.productService.aiMode }}** — `demo` = local text only; `openai` = OpenAI SDK; `gemini` = Google Generative AI (Gemini) SDK (README).
+{{- if .Values.productService.openai.enabled }}
+{{- $defaultOpenaiSecret := printf "%s-openai-credentials" .Release.Name }}
+{{- $openaiSecret := include "odimall.openai.secretName" . }}
+ OpenAI: **Secret/{{ $openaiSecret }}** (key {{ include "odimall.openai.secretKey" . }}).
+{{- if and .Values.productService.openai.createSecret (eq $openaiSecret $defaultOpenaiSecret) }}
+  Helm may create a **placeholder** key there — patch before **aiMode=openai**.
+{{- end }}
+{{- end }}
+{{- if .Values.productService.gemini.enabled }}
+{{- $defaultGeminiSecret := printf "%s-gemini-credentials" .Release.Name }}
+{{- $geminiSecret := include "odimall.gemini.secretName" . }}
+ Gemini: **Secret/{{ $geminiSecret }}** (key {{ include "odimall.gemini.secretKey" . }}).
+{{- if and .Values.productService.gemini.createSecret (eq $geminiSecret $defaultGeminiSecret) }}
+  Helm may create a **placeholder** key there — patch before **aiMode=gemini**.
+{{- end }}
+{{- end }}
+
+{{- end }}
 
 Access the UI (example):
   kubectl port-forward -n {{ .Release.Namespace }} svc/frontend 8080:8080

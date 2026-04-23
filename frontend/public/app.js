@@ -195,6 +195,69 @@ function filterProducts(category) {
   renderCatalog(category);
 }
 
+/* ===== Product detail — AI blurb (product-service: demo, OpenAI, or Gemini) ===== */
+async function generateAiSummary(productId) {
+  const btn = document.getElementById('aiSummaryBtn');
+  const out = document.getElementById('aiSummaryOutput');
+  if (!btn || !out) return;
+
+  btn.disabled = true;
+  const prevLabel = btn.textContent;
+  btn.textContent = 'Generating…';
+  out.style.display = 'block';
+  out.className = 'ai-summary-output';
+  out.textContent = 'Generating blurb…';
+
+  try {
+    const res = await fetch(`/api/products/${productId}/ai-summary`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tone: 'short, friendly, and helpful for shoppers' })
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      const hint = data.hint ? ` ${data.hint}` : '';
+      const detail = data.detail ? String(data.detail) : '';
+      const msg = data.error || `HTTP ${res.status}`;
+      out.className = 'ai-summary-output is-error';
+      out.innerHTML = `<strong>${msg}</strong>${hint ? `<p style="margin-top:8px">${hint}</p>` : ''}${detail ? `<pre style="margin-top:10px;white-space:pre-wrap;font-size:0.8rem;opacity:0.9">${detail.replace(/</g, '&lt;')}</pre>` : ''}`;
+      showToast(
+        msg + (res.status === 503 ? ' — set API keys / aiMode on product-service (README).' : ''),
+        'error'
+      );
+      return;
+    }
+
+    out.className = 'ai-summary-output';
+    out.textContent = data.aiSummary || '';
+    const metaExtra =
+      data.source === 'demo-local'
+        ? ' (local demo — no API key)'
+        : data.source === 'gemini'
+          ? ' (Google Gemini)'
+          : '';
+    const meta = data.model ? `Model: ${data.model}${metaExtra}` : '';
+    out.insertAdjacentHTML('beforeend', `<div class="ai-summary-meta">${meta}</div>`);
+    const toast =
+      data.source === 'demo-local'
+        ? 'Demo blurb ready (no cloud LLM)'
+        : data.source === 'gemini'
+          ? 'Gemini blurb ready'
+          : 'AI blurb ready';
+    showToast(toast, 'success');
+  } catch (err) {
+    out.className = 'ai-summary-output is-error';
+    out.textContent = err.message || 'Request failed';
+    showToast('Could not reach AI service', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = prevLabel;
+  }
+}
+
+window.generateAiSummary = generateAiSummary;
+
 /* ===== Product Detail ===== */
 function showProductDetail(id) {
   const product = PRODUCT_DATA.find(p => p.id === id);
@@ -212,6 +275,13 @@ function showProductDetail(id) {
       ${product.chaos ? '<div class="detail-chaos">⚡ Demo Chaos — This item triggers simulated issues</div>' : ''}
       <div class="detail-price">$${product.price.toFixed(2)}</div>
       <p class="detail-description">${product.description}</p>
+      <div class="ai-summary-block">
+        <button type="button" class="btn btn-outline" id="aiSummaryBtn" onclick="generateAiSummary(${product.id})">
+          ✨ AI product blurb
+        </button>
+        <p class="ai-summary-help">Calls <code>POST /products/{id}/ai-summary</code> through the gateway. The <strong>cluster</strong> picks the writer: <code>ODIMALL_AI_MODE</code> is <code>demo</code>, <code>openai</code>, or <code>gemini</code> (and <code>GEMINI_MODEL</code> when using Gemini). This page does not hard-code OpenAI vs Gemini.</p>
+        <div id="aiSummaryOutput" class="ai-summary-output" style="display:none" aria-live="polite"></div>
+      </div>
       <div class="quantity-selector">
         <label>Quantity</label>
         <div class="qty-controls">

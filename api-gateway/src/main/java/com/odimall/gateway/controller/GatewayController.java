@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Map;
@@ -37,9 +38,9 @@ public class GatewayController {
 
     // --- Product routes ---
 
-    @RequestMapping(value = "/products/**", method = {RequestMethod.GET})
-    public ResponseEntity<String> proxyProducts(HttpServletRequest request) {
-        return proxy(request, productServiceUrl);
+    @RequestMapping(value = "/products/**", method = {RequestMethod.GET, RequestMethod.POST})
+    public ResponseEntity<String> proxyProducts(HttpServletRequest request, @RequestBody(required = false) String body) {
+        return proxy(request, productServiceUrl, body);
     }
 
     // --- Cart routes ---
@@ -106,6 +107,9 @@ public class GatewayController {
                     .body(response.getBody());
         } catch (HttpClientErrorException e) {
             logger.warn("Upstream returned {}: {}", e.getStatusCode(), e.getMessage());
+            return ResponseEntity.status(e.getStatusCode()).body(e.getResponseBodyAsString());
+        } catch (HttpServerErrorException e) {
+            logger.warn("Upstream server error {}: {}", e.getStatusCode(), e.getMessage());
             return ResponseEntity.status(e.getStatusCode()).body(e.getResponseBodyAsString());
         } catch (Exception e) {
             logger.error("Error proxying request to {}: {}", targetUrl, e.getMessage());

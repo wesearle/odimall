@@ -428,6 +428,43 @@ body {
   border: 1px solid #f5c6cb;
 }
 
+.ai-summary-block {
+  margin: 0 0 24px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.ai-summary-block .ai-summary-help {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 10px 0 0;
+  line-height: 1.5;
+}
+
+.ai-summary-output {
+  margin-top: 14px;
+  padding: 16px 18px;
+  background: linear-gradient(135deg, #f4faf7, #eef6f2);
+  border: 1px solid #c5e0d3;
+  border-radius: var(--radius-sm);
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: var(--text);
+}
+
+.ai-summary-output.is-error {
+  background: #fff8f8;
+  border-color: #f5c6cb;
+  color: #842029;
+  font-size: 0.88rem;
+}
+
+.ai-summary-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 12px;
+}
+
 /* ===== Fatal checkout fault ===== */
 .page-checkout-fatal {
   min-height: calc(100vh - 0px);

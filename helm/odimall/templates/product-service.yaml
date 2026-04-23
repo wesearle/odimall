@@ -34,6 +34,26 @@ spec:
               value: "odimall123"
             - name: DB_NAME
               value: "odimall"
+            - name: ODIMALL_AI_MODE
+              value: {{ .Values.productService.aiMode | quote }}
+            - name: OPENAI_MODEL
+              value: {{ .Values.productService.openaiModel | quote }}
+            - name: GEMINI_MODEL
+              value: {{ .Values.productService.geminiModel | quote }}
+{{- if .Values.productService.openai.enabled }}
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "odimall.openai.secretName" . | quote }}
+                  key: {{ include "odimall.openai.secretKey" . | quote }}
+{{- end }}
+{{- if .Values.productService.gemini.enabled }}
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "odimall.gemini.secretName" . | quote }}
+                  key: {{ include "odimall.gemini.secretKey" . | quote }}
+{{- end }}
           resources:
             requests:
               memory: "128Mi"

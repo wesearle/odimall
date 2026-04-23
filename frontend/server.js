@@ -10,6 +10,7 @@ const RUM_ENABLED = String(process.env.RUM_ENABLED || '').toLowerCase() === 'tru
 const RUM_PROXY_TARGET = process.env.RUM_PROXY_TARGET || 'http://127.0.0.1:9998';
 
 const INDEX_PATH = path.join(__dirname, 'public', 'index.html');
+const PUBLIC_DIR = path.join(__dirname, 'public');
 const RUM_BUNDLE_PATH = path.join(__dirname, 'public', 'rum.bundle.js');
 /** Bust browser cache whenever the shipped bundle file changes (e.g. new image). */
 const RUM_BUNDLE_QUERY = (() => {
@@ -20,13 +21,14 @@ const RUM_BUNDLE_QUERY = (() => {
   }
 })();
 
-let indexTemplate = null;
-
-function loadIndexTemplate() {
-  if (!indexTemplate) {
-    indexTemplate = fs.readFileSync(INDEX_PATH, 'utf8');
+/** Query string for /app.js and /style.css so deploys invalidate browser cache without a hard refresh. */
+function publicAssetQuery() {
+  try {
+    const mtimes = ['app.js', 'style.css'].map((f) => fs.statSync(path.join(PUBLIC_DIR, f)).mtimeMs);
+    return `?v=${Math.floor(Math.max(...mtimes))}`;
+  } catch {
+    return `?v=${Date.now()}`;
   }
-  return indexTemplate;
 }
 
 function buildRumInjection() {
@@ -64,17 +66,33 @@ app.get('/rum.bundle.js', (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   res.sendFile(RUM_BUNDLE_PATH);
 });
-app.use(express.static(path.join(__dirname, 'public'), { index: false }));
+
+// SPA shell assets: avoid stale app.js after image upgrades (browser default-cache + Docker tag reuse).
+app.get('/app.js', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.type('application/javascript');
+  res.sendFile(path.join(PUBLIC_DIR, 'app.js'));
+});
+app.get('/style.css', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.type('text/css');
+  res.sendFile(path.join(PUBLIC_DIR, 'style.css'));
+});
+
+app.use(express.static(PUBLIC_DIR, { index: false }));
 
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api') || req.path.startsWith('/faro')) {
     return res.status(404).send('Not found');
   }
-  const html = loadIndexTemplate().replace(
-    '<!-- ODIMALL_RUM_CONFIG -->',
-    buildRumInjection()
-  );
-  res.type('html').send(html);
+  const q = publicAssetQuery();
+  const html = fs
+    .readFileSync(INDEX_PATH, 'utf8')
+    .replace(/href="\/style\.css(\?[^"]*)?"/, `href="/style.css${q}"`)
+    .replace(/src="\/app\.js(\?[^"]*)?"/, `src="/app.js${q}"`)
+    .replace('<!-- ODIMALL_RUM_CONFIG -->', buildRumInjection());
+  res.type('html').setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.send(html);
 });
 
 app.listen(PORT, () => {
