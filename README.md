@@ -227,6 +227,8 @@ When purchased, the order service:
 
 ### Adding product #11 to an existing MySQL database
 
+The storefront **merges in** the Shadow Peak row on the client when `/products` succeeds but does not return id **11**, so the lab SKU is visible even before you migrate MySQL. For consistent catalog data, pricing in SQL, and `GET /products/11` from **product-service**, you should still add the row to the database.
+
 `k8s/mysql-init-configmap.yaml` is only applied on **first** MySQL initialization. If your cluster already has a volume with the old seed data, run the following once against the **`odimall`** database (for example via `kubectl exec` into MySQL):
 
 ```sql
