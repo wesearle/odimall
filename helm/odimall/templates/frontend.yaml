@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: frontend
+    app.kubernetes.io/part-of: odimall
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+        app.kubernetes.io/part-of: odimall
+    spec:
+      containers:
+        - name: frontend
+          image: {{ .Values.images.frontend | quote }}
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          env:
+            - name: API_GATEWAY_URL
+              value: "http://api-gateway:8081"
+{{- if or .Values.rum.enabled .Values.rumEnabled }}
+            - name: RUM_ENABLED
+              value: "true"
+            - name: RUM_PROXY_TARGET
+              value: "http://{{ .Release.Name }}-rum-alloy.{{ .Release.Namespace }}.svc.cluster.local:9998"
+{{- end }}
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: frontend
+    app.kubernetes.io/part-of: odimall
+spec:
+  type: ClusterIP
+  selector:
+    app: frontend
+  ports:
+    - port: 8080
+      targetPort: 8080

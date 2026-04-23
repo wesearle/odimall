@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory-service
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: inventory-service
+    app.kubernetes.io/part-of: odimall
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: inventory-service
+  template:
+    metadata:
+      labels:
+        app: inventory-service
+        app.kubernetes.io/part-of: odimall
+    spec:
+      containers:
+        - name: inventory-service
+          image: wsearle/odimall:inventory-service
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8088
+          env:
+            - name: DB_HOST
+              value: "mysql"
+            - name: DB_PORT
+              value: "3306"
+            - name: DB_USER
+              value: "odimall"
+            - name: DB_PASSWORD
+              value: "odimall123"
+            - name: DB_NAME
+              value: "odimall"
+            - name: KAFKA_BROKERS
+              value: "kafka:9092"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inventory-service
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: inventory-service
+    app.kubernetes.io/part-of: odimall
+spec:
+  selector:
+    app: inventory-service
+  ports:
+    - port: 8088
+      targetPort: 8088

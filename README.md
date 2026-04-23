@@ -42,6 +42,55 @@ chmod +x deploy.sh
 ./deploy.sh
 ```
 
+### Deploy with Helm (optional Grafana Faro RUM)
+
+The full stack can also be installed from **`helm/odimall`**. Plain **`k8s/deploy.sh`** does **not** turn on browser RUM; use Helm flags below when you want Faro + Alloy.
+
+**What gets enabled**
+
+- **Frontend**: Grafana Faro Web SDK + tracing (`service.name` **`browser`** in Tempo). The UI loads `rum.bundle.js` only when `RUM_ENABLED=true`; beacons go to **`/faro`**, which the Node server proxies to Alloy.
+- **Alloy**: chart deploys **`<helm-release-name>-rum-alloy`** (for example **`odimall-rum-alloy`** when the release is `odimall`) with `otelcol.receiver.faro` on port **9998** and forwards OTLP **gRPC** to **`rum.endpoint`**. Alloy runs with **`--stability.level=experimental`** (required for the Faro receiver).
+
+**Prerequisites**
+
+- An OTLP **gRPC** ingest reachable from the `odimall` namespace (host:port, no `http://` prefix), e.g. in-cluster LGTM **`lgtm.lgtm:4317`**.
+- Set **`rum.otlpInsecure=false`** in Helm values only if that endpoint uses TLS with a verifiable cert (default is insecure gRPC for typical in-cluster setups).
+
+**Install (greenfield namespace)**
+
+```bash
+helm install odimall ./helm/odimall -n odimall --create-namespace \
+  --set rum.enabled=true \
+  --set rum.endpoint=lgtm.lgtm:4317
+```
+
+**Equivalent flags**: `--set rumEnabled=true --set rumEndpoint=lgtm.lgtm:4317`
+
+**Upgrade / change RUM target**
+
+```bash
+helm upgrade odimall ./helm/odimall -n odimall \
+  --set rum.enabled=true \
+  --set rum.endpoint=lgtm.lgtm:4317
+```
+
+**Already deployed with `kubectl apply` / `./deploy.sh`?**
+
+Existing objects lack Helm ownership metadata. Either use a **fresh** `odimall` namespace, or on Helm 3.17+ / Helm 4:
+
+```bash
+helm upgrade --install odimall ./helm/odimall -n odimall --create-namespace \
+  --set rum.enabled=true \
+  --set rum.endpoint=lgtm.lgtm:4317 \
+  --take-ownership
+```
+
+**Seeing data in Grafana**
+
+- **Odigos** traces come from workloads (e.g. `service.name=frontend` on the Node BFF). **`POST /faro`** in those traces means the browser hit the Faro proxy; that is still Odigos-instrumented server-side telemetry.
+- **Faro / browser** spans use **`service.name="browser"`**. They only appear when you use the **storefront in a real browser**; the **load generator** calls `api-gateway` directly and does **not** run Faro.
+- After changing the frontend image, **hard-refresh** the browser so `rum.bundle.js` updates.
+
 ### Access the UI
 
 ```bash
@@ -161,11 +210,11 @@ When purchased, the order service:
 - The lock timeout exception is caught; the order still completes
 - Creates a visible lock contention pattern in database traces
 
-### Shadow Peak Mystery Crate (Product #11) — Odigos lab / policy denial
+### Shadow Peak Mystery Crate (Product #11) — policy denial (storefront-only SKU)
 
-- Listed in the catalog as an **Odigos lab** SKU (storefront only). The **load generator excludes** this product ID so automated traffic never hits it.
-- When a **human** checks out with this item in the cart, **`RetailFulfillmentGate.assessPipelineCoherence`** denies the order before persistence; the API responds with **409 Conflict** and a generic message.
-- **Without** custom instrumentation on that method, logs and HTTP responses do not explain the denial; **with** instrumentation, inspect **arguments** and **`return.value`** (from `RetailPipelineAssessment.toString()`, containing the attestation) as described in [Enabling custom instrumentation for RetailFulfillmentGate (Shadow Peak demo)](#enabling-custom-instrumentation-for-retailfulfillmentgate-shadow-peak-demo).
+- Catalog item for **live UI demos** (same **Demo Chaos** badge treatment as other chaos SKUs). The **load generator excludes** this product ID so automated traffic never purchases it.
+- When a **human** checks out with this item in the cart, **`RetailFulfillmentGate.assessPipelineCoherence`** can deny the order before persistence; the API may respond with **409 Conflict** and a generic message.
+- **Without** custom instrumentation on that method, logs and HTTP responses may not explain the denial; **with** instrumentation, inspect **arguments** and **`return.value`** (from `RetailPipelineAssessment.toString()`, containing the attestation) as described in [Enabling custom instrumentation for RetailFulfillmentGate (Shadow Peak demo)](#enabling-custom-instrumentation-for-retailfulfillmentgate-shadow-peak-demo).
 
 ## Products
 
@@ -181,7 +230,7 @@ When purchased, the order service:
 | 8 | Wilderness First Aid Kit | $49.99 | Safety | |
 | 9 | Canyon Explorer Headlamp | $39.99 | Lighting | |
 | 10 | Mountain Stream Water Filter | $34.99 | Hydration | |
-| 11 | Shadow Peak Mystery Crate | $59.99 | Limited | UI-only; policy / Odigos lab |
+| 11 | Shadow Peak Mystery Crate | $59.99 | Limited | Storefront-only; policy / demo chaos |
 
 ### Adding product #11 to an existing MySQL database
 
@@ -208,6 +257,7 @@ odimall/
 ├── cart-service/          # Ruby/Sinatra — in-memory shopping cart
 ├── frontend/              # Node.js/Express — web UI & API proxy
 ├── inventory-service/     # Go — MySQL + Kafka producer
+├── helm/odimall/            # Helm chart (optional Grafana Faro RUM + Alloy)
 ├── k8s/                   # Kubernetes manifests, deploy & destroy scripts
 ├── mysql-init/            # SQL schema & seed data
 ├── notification-service/  # Go — Kafka consumer

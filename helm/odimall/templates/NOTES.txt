@@ -1,0 +1,14 @@
+OdiMall has been installed in namespace {{ .Release.Namespace }}.
+
+{{- if or .Values.rum.enabled .Values.rumEnabled }}
+
+Grafana Faro RUM is enabled: the frontend proxies browser telemetry to Alloy
+({{ .Release.Name }}-rum-alloy:9998), which forwards OTLP to {{ include "odimall.rum.otlpEndpoint" . }}.
+
+Use the storefront in a real browser (not only the load generator) so Faro can send data.
+
+{{- end }}
+
+Access the UI (example):
+  kubectl port-forward -n {{ .Release.Namespace }} svc/frontend 8080:8080
+  open http://localhost:8080

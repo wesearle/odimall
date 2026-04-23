@@ -1,0 +1,109 @@
+{{- if or .Values.rum.enabled .Values.rumEnabled }}
+{{- $ep := include "odimall.rum.otlpEndpoint" . }}
+{{- if empty $ep }}{{ fail "rum.endpoint (or rumEndpoint) is required when rum.enabled / rumEnabled is true" }}{{ end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-rum-alloy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: odimall-rum-alloy
+    app.kubernetes.io/part-of: odimall
+data:
+  config.river: |
+    otelcol.receiver.faro "ingest" {
+      endpoint = "0.0.0.0:9998"
+
+      output {
+        traces  = [otelcol.processor.batch.faro.input]
+        logs    = [otelcol.processor.batch.faro.input]
+        metrics = [otelcol.processor.batch.faro.input]
+      }
+    }
+
+    otelcol.processor.batch "faro" {
+      output {
+        traces  = [otelcol.exporter.otlp.lgtm.input]
+        logs    = [otelcol.exporter.otlp.lgtm.input]
+        metrics = [otelcol.exporter.otlp.lgtm.input]
+      }
+    }
+
+    otelcol.exporter.otlp "lgtm" {
+      client {
+        endpoint = {{ $ep | quote }}
+{{- if .Values.rum.otlpInsecure }}
+        tls {
+          insecure             = true
+          insecure_skip_verify = true
+        }
+{{- end }}
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-rum-alloy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: rum-alloy
+    app.kubernetes.io/name: odimall-rum-alloy
+    app.kubernetes.io/part-of: odimall
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rum-alloy
+  template:
+    metadata:
+      labels:
+        app: rum-alloy
+        app.kubernetes.io/part-of: odimall
+    spec:
+      containers:
+        - name: alloy
+          image: {{ .Values.alloy.image | quote }}
+          imagePullPolicy: IfNotPresent
+          args:
+            - run
+            - --stability.level={{ .Values.alloy.stabilityLevel }}
+            - --server.http.listen-addr=0.0.0.0:12345
+            - --storage.path=/tmp/alloy
+            - /etc/alloy/config.river
+          ports:
+            - name: faro
+              containerPort: 9998
+          volumeMounts:
+            - name: config
+              mountPath: /etc/alloy
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Release.Name }}-rum-alloy
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-rum-alloy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: rum-alloy
+    app.kubernetes.io/name: odimall-rum-alloy
+    app.kubernetes.io/part-of: odimall
+spec:
+  type: ClusterIP
+  selector:
+    app: rum-alloy
+  ports:
+    - name: faro
+      port: 9998
+      targetPort: faro
+{{- end }}

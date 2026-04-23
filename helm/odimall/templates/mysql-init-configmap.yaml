@@ -1,0 +1,74 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-init-sql
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: mysql
+    app.kubernetes.io/part-of: odimall
+data:
+  init.sql: |
+    CREATE DATABASE IF NOT EXISTS odimall;
+    USE odimall;
+
+    CREATE TABLE products (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        price DECIMAL(10, 2) NOT NULL,
+        image_url VARCHAR(500),
+        category VARCHAR(100)
+    );
+
+    CREATE TABLE inventory (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        product_id INT NOT NULL,
+        quantity INT NOT NULL DEFAULT 100,
+        reserved INT NOT NULL DEFAULT 0,
+        FOREIGN KEY (product_id) REFERENCES products(id)
+    );
+
+    CREATE TABLE orders (
+        id VARCHAR(36) PRIMARY KEY,
+        session_id VARCHAR(255) NOT NULL,
+        total_amount DECIMAL(10, 2) NOT NULL,
+        shipping_cost DECIMAL(10, 2) NOT NULL DEFAULT 0,
+        shipping_name VARCHAR(255),
+        shipping_address VARCHAR(500),
+        shipping_city VARCHAR(100),
+        shipping_state VARCHAR(100),
+        shipping_zip VARCHAR(20),
+        status VARCHAR(50) NOT NULL DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE order_items (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        order_id VARCHAR(36) NOT NULL,
+        product_id INT NOT NULL,
+        product_name VARCHAR(255) NOT NULL,
+        price DECIMAL(10, 2) NOT NULL,
+        quantity INT NOT NULL DEFAULT 1,
+        FOREIGN KEY (order_id) REFERENCES orders(id)
+    );
+
+    INSERT INTO products (id, name, description, price, image_url, category) VALUES
+    (1, 'Trail Blazer Hiking Boots', 'Waterproof leather boots with Vibram soles for all-terrain hiking. Features ankle support and breathable lining.', 129.99, '/images/boots.svg', 'Footwear'),
+    (2, 'Summit Backpack 65L', 'Ultralight backpack with adjustable suspension system. Multiple compartments and hydration compatible.', 189.99, '/images/backpack.svg', 'Packs'),
+    (3, 'Glacier Sleeping Bag', '4-season down sleeping bag rated to -20°F. Mummy style with draft collar and hood.', 149.99, '/images/sleeping-bag.svg', 'Sleep'),
+    (4, 'Alpine Trekking Poles', 'Carbon fiber poles with cork grips and quick-lock adjustment. Includes snow baskets.', 79.99, '/images/poles.svg', 'Accessories'),
+    (5, 'Storm Chaser Tent 4P', '4-person tent with 3000mm waterproof rating. Freestanding design with vestibule storage.', 299.99, '/images/tent.svg', 'Shelter'),
+    (6, 'Rapid River Kayak', 'Inflatable touring kayak with high-pressure drop-stitch floor. Includes paddle and pump.', 499.99, '/images/kayak.svg', 'Water'),
+    (7, 'Peak Performance Jacket', '3-layer Gore-Tex shell with helmet-compatible hood. Pit zips and adjustable cuffs.', 219.99, '/images/jacket.svg', 'Apparel'),
+    (8, 'Wilderness First Aid Kit', 'Comprehensive 120-piece kit for backcountry emergencies. Waterproof case included.', 49.99, '/images/firstaid.svg', 'Safety'),
+    (9, 'Canyon Explorer Headlamp', '800 lumen rechargeable headlamp with red night mode. IPX8 waterproof rating.', 39.99, '/images/headlamp.svg', 'Lighting'),
+    (10, 'Mountain Stream Water Filter', 'Gravity-fed filter system removing 99.99% of bacteria. Filters up to 1500 liters.', 34.99, '/images/filter.svg', 'Hydration'),
+    (11, 'Shadow Peak Mystery Crate', 'Limited “surprise” crate for in-store demos. Checkout is restricted to the live storefront; automated buyers cannot purchase this SKU.', 59.99, '/images/mystery-crate.svg', 'Limited');
+
+    INSERT INTO inventory (product_id, quantity) VALUES
+    (1, 10000), (2, 10000), (3, 10000), (4, 10000), (5, 10000),
+    (6, 10000), (7, 10000), (8, 10000), (9, 10000), (10, 10000), (11, 10000);
+
+    CREATE USER IF NOT EXISTS 'odimall'@'%' IDENTIFIED BY 'odimall123';
+    GRANT ALL PRIVILEGES ON odimall.* TO 'odimall'@'%';
+    FLUSH PRIVILEGES;

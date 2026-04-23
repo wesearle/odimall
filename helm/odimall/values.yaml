@@ -1,0 +1,14 @@
+images:
+  frontend: wsearle/odimall:frontend
+
+rum:
+  enabled: false
+  endpoint: ""
+  otlpInsecure: true
+
+rumEnabled: false
+rumEndpoint: ""
+
+alloy:
+  image: grafana/alloy:v1.10.2
+  stabilityLevel: experimental
