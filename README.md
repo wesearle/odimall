@@ -120,7 +120,7 @@ Define these signatures when configuring custom rules (Java uses `className` + `
 
 #### Enabling custom instrumentation for RetailFulfillmentGate (Shadow Peak demo)
 
-Product **#11 — Shadow Peak Mystery Crate** is rejected during checkout by `RetailFulfillmentGate.assessPipelineCoherence`. The order service returns **HTTP 409** with a **generic** message (`Checkout could not be completed`) and **does not log** the internal denial payload. That is deliberate: the “what went wrong” story lives in the **method arguments** and the **return value** of `assessPipelineCoherence`, which you surface with Odigos custom instrumentation. The Java type `RetailPipelineAssessment` overrides **`toString()`** so the agent’s **`return.value`** field is a readable line (including `fulfillmentLedgerAttestation`), not the default `Class@hashCode`.
+Product **#11 — Shadow Peak Mystery Crate** is rejected during checkout by `RetailFulfillmentGate.assessPipelineCoherence`. The order service returns **HTTP 409** with a **generic** message (`Checkout could not be completed`) and **does not log** the internal denial payload. That is deliberate: the “what went wrong” story lives in the **method arguments** and the **return value** of `assessPipelineCoherence`, which you surface with Odigos custom instrumentation. The Java type `RetailPipelineAssessment` overrides **`toString()`** so the agent’s **`return.value`** is a short line (e.g. `DENY|PIPELINE_HALT|sku=11|cause=MANUAL_FULFILLMENT_SKU_IN_CART|corr=…`). The string is kept **under typical OTLP attribute length limits** (~128 chars); long prose would be truncated mid-field.
 
 1. Ensure **`order-service`** is selected as an Odigos source / instrumented workload (same as your normal Java tracing).
 2. Add a **CustomInstrumentation** rule for the VM Agent (or equivalent in your deployment) with:
@@ -140,9 +140,9 @@ config:
 
 - In traces for a failed checkout, a span (or enriched data) for **`assessPipelineCoherence`** should show:
   - **Arguments:** `sessionId` and `enrichedLineItems` — line item maps include `productId` → **11** when the Shadow Peak crate is in the cart.
-  - **Return value:** the string from `RetailPipelineAssessment.toString()`, for example  
-    `RetailPipelineAssessment{retailContinuationGranted=false, fulfillmentLedgerAttestation=PIPELINE_HALT|cause=MANUAL_FULFILLMENT_SKU_IN_CART|skuId=11|...}`  
-    (Odigos records this as **`return.value`**; it is not the opaque `RetailPipelineAssessment@…` default `Object.toString()`.)
+  - **Return value:** `RetailPipelineAssessment.toString()`, e.g.  
+    `DENY|PIPELINE_HALT|sku=11|cause=MANUAL_FULFILLMENT_SKU_IN_CART|corr=<hex>`  
+    (Odigos **`return.value`**; compact so it is not cut off by attribute length caps.)
 - In **Grafana** (or any backend consuming OTLP), filter traces by `order-service` and the checkout time window; open the custom-instrumented span to inspect captured fields (exact attribute names depend on the Odigos agent version).
 
 **Storefront behavior (no custom instrumentation)**

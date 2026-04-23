@@ -41,9 +41,9 @@ public class RetailFulfillmentGate {
                     "PIPELINE_CLEAR|retail_continuation=true|manual_hold_skus=none");
         }
 
+        // Keep attestation short: OTLP/Odigos often truncates span attribute values (~128 chars). Put sku + cause first.
         return new RetailPipelineAssessment(false,
-                "PIPELINE_HALT|cause=MANUAL_FULFILLMENT_SKU_IN_CART|skuId=" + MANUAL_FULFILLMENT_HOLD_SKU
-                        + "|hint=instrument_RetailFulfillmentGate_assessPipelineCoherence_args_and_return"
-                        + "|sessionCorrelation=" + Integer.toHexString(Objects.hashCode(sessionId)));
+                "PIPELINE_HALT|sku=11|cause=MANUAL_FULFILLMENT_SKU_IN_CART|corr="
+                        + Integer.toHexString(Objects.hashCode(sessionId)));
     }
 }
