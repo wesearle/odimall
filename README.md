@@ -106,7 +106,7 @@ Define these signatures when configuring custom rules (Java uses `className` + `
 - Class: `com.odimall.order.processor.OrderProcessor`
 - Method: `processOrder`
 
-**Java — Retail fulfillment policy gate (Shadow Peak / Odigos lab SKU — see below):**
+**Java — Retail fulfillment policy gate (Shadow Peak Mystery Crate Problem Pattern):**
 - Class: `com.odimall.order.policy.RetailFulfillmentGate`
 - Method: `assessPipelineCoherence`
 
