@@ -91,12 +91,9 @@ Both Go Kafka services use [`segmentio/kafka-go`](https://github.com/segmentio/k
 
 ### Custom Code Instrumentation
 
-OdiMall includes several **Java and Go** entry points that are useful targets for Odigos **custom instrumentation** (extra spans / richer attributes on business logic). How you register them depends on your Odigos edition and agent:
+OdiMall includes several **Java and Go** entry points that are useful targets for Odigos **custom instrumentation** (extra spans / richer attributes on business logic). 
 
-- **VM Agent custom instrumentation rules** (YAML / `odictl`): arbitrary Java methods by **fully qualified class name** and **method name** — see Odigos docs: [Custom Instrumentation](https://docs.odigos.io/vmagent/setup/configuration/instrumentation-rules/custom-instrumentation).
-- **Native Java auto-instrumentation** (OpenTelemetry Java agent): covers frameworks and libraries; it does **not** automatically wrap arbitrary application methods until you add a supported custom rule or manual OTel code.
-
-Define these signatures when configuring custom rules (Java uses `className` + `methodName` only; parameter types are not part of the rule):
+Define these signatures when configuring custom rules:
 
 **Java — API Gateway Request Processor:**
 - Class: `com.odimall.gateway.processor.OdiMallRequestProcessor`
