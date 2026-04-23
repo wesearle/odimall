@@ -42,9 +42,7 @@ chmod +x deploy.sh
 ./deploy.sh
 ```
 
-### Deploy with Helm (optional Grafana Faro RUM)
-
-The full stack can also be installed from **`helm/odimall`**. Plain **`k8s/deploy.sh`** does **not** turn on browser RUM; use Helm flags below when you want Faro + Alloy.
+### Enable Browser SDK with Grafana Faro
 
 **What gets enabled**
 
@@ -56,25 +54,15 @@ The full stack can also be installed from **`helm/odimall`**. Plain **`k8s/deplo
 - An OTLP **gRPC** ingest reachable from the `odimall` namespace (host:port, no `http://` prefix), e.g. in-cluster LGTM **`lgtm.lgtm:4317`**.
 - Set **`rum.otlpInsecure=false`** in Helm values only if that endpoint uses TLS with a verifiable cert (default is insecure gRPC for typical in-cluster setups).
 
-**Install (greenfield namespace)**
+**Install with Browser SDK Enabled**
 
 ```bash
-helm install odimall ./helm/odimall -n odimall --create-namespace \
-  --set rum.enabled=true \
-  --set rum.endpoint=lgtm.lgtm:4317
+helm upgrade --install odimall ./helm/odimall -n odimall --create-namespace \
+  --set rumEnabled=true \
+  --set rumEndpoint=lgtm.lgtm:4317
 ```
 
-**Equivalent flags**: `--set rumEnabled=true --set rumEndpoint=lgtm.lgtm:4317`
-
-**Upgrade / change RUM target**
-
-```bash
-helm upgrade odimall ./helm/odimall -n odimall \
-  --set rum.enabled=true \
-  --set rum.endpoint=lgtm.lgtm:4317
-```
-
-**Already deployed with `kubectl apply` / `./deploy.sh`?**
+**Already deployed?**
 
 Existing objects lack Helm ownership metadata. Either use a **fresh** `odimall` namespace, or on Helm 3.17+ / Helm 4:
 
@@ -87,8 +75,8 @@ helm upgrade --install odimall ./helm/odimall -n odimall --create-namespace \
 
 **Seeing data in Grafana**
 
-- **Odigos** traces come from workloads (e.g. `service.name=frontend` on the Node BFF). **`POST /faro`** in those traces means the browser hit the Faro proxy; that is still Odigos-instrumented server-side telemetry.
 - **Faro / browser** spans use **`service.name="browser"`**. They only appear when you use the **storefront in a real browser**; the **load generator** calls `api-gateway` directly and does **not** run Faro.
+- Browser spans will automatically stitch to Odigos backend Traces
 - After changing the frontend image, **hard-refresh** the browser so `rum.bundle.js` updates.
 
 ### Access the UI
@@ -106,17 +94,6 @@ cd k8s
 chmod +x destroy.sh
 ./destroy.sh
 ```
-
-## Building Images
-
-Build and push multi-arch images (linux/amd64 + linux/arm64):
-
-```bash
-chmod +x build-push.sh
-./build-push.sh
-```
-
-Images are pushed to `docker.io/wsearle/odimall:<service-name>`.
 
 ## Observability with Odigos
 
