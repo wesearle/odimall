@@ -49,7 +49,7 @@ def demo_ai_summary(product, tone):
     snippet = desc if len(desc) <= 320 else desc[:317].rstrip() + "…"
     return (
         f"The {name} is a solid pick in {cat} at ${price:.2f}. {snippet} "
-        f"We tuned this blurb for a {tone} feel using OdiMall's built-in demo writer (no cloud LLM call)."
+        f"We tuned this blurb for a {tone} feel using OdiGear's built-in demo writer (no cloud LLM call)."
     )
 
 
@@ -91,7 +91,7 @@ def generate_with_gemini(user_prompt):
         model=model_name,
         contents=user_prompt,
         config=types.GenerateContentConfig(
-            system_instruction="You are a helpful retail copywriter for OdiMall outdoor gear.",
+            system_instruction="You are a helpful retail copywriter for OdiGear outdoor gear.",
             max_output_tokens=256,
             temperature=0.7,
         ),
@@ -196,7 +196,7 @@ def ai_product_summary(product_id):
                 "category": product["category"],
                 "price": product["price"],
                 "aiSummary": text_out,
-                "model": "odimall-demo-local",
+                "model": "odigear-demo-local",
                 "source": "demo-local",
             }
         )
@@ -256,7 +256,7 @@ def ai_product_summary(product_id):
                 "category": product["category"],
                 "price": product["price"],
                 "aiSummary": text_out,
-                "model": "odimall-demo-local",
+                "model": "odigear-demo-local",
                 "source": "demo-local",
             }
         )
@@ -281,7 +281,7 @@ def ai_product_summary(product_id):
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a helpful retail copywriter for OdiMall outdoor gear.",
+                    "content": "You are a helpful retail copywriter for OdiGear outdoor gear.",
                 },
                 {"role": "user", "content": user_prompt},
             ],

@@ -1,5 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
-  <rect width="200" height="200" rx="20" fill="#e3f2fd" opacity="0.5"/>
   <g transform="translate(10,50)">
     <!-- Kayak hull -->
     <path d="M5 60 Q90 30 180 60 Q90 85 5 60Z" fill="#2196F3"/>

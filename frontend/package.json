@@ -1,7 +1,7 @@
 {
-  "name": "odimall-frontend",
+  "name": "odigear-frontend",
   "version": "1.0.0",
-  "description": "OdiMall e-commerce frontend",
+  "description": "OdiGear e-commerce demo frontend (Odigos)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

@@ -47,7 +47,7 @@ chmod +x deploy.sh
 **What gets enabled**
 
 - **Frontend**: Grafana Faro Web SDK + tracing (`service.name` **`browser`** in Tempo). The UI loads `rum.bundle.js` only when `RUM_ENABLED=true`; beacons go to **`/faro`**, which the Node server proxies to Alloy.
-- **Alloy**: chart deploys **`<helm-release-name>-rum-alloy`** (for example **`odimall-rum-alloy`** when the release is `odimall`) with `otelcol.receiver.faro` on port **9998** and forwards OTLP **gRPC** to **`rum.endpoint`**. Alloy runs with **`--stability.level=experimental`** (required for the Faro receiver).
+- **Alloy**: chart deploys **`<helm-release-name>-rum-alloy`** (for example **`odimall-rum-alloy`** when the release is `odimall`) with `otelcol.receiver.faro` on port **9998** and forwards OTLP **gRPC** to **`rum.endpoint`**. 
 
 **Prerequisites**
 
@@ -77,22 +77,20 @@ helm upgrade --install odimall ./helm/odimall -n odimall --create-namespace \
 
 - **Faro / browser** spans use **`service.name="browser"`**. They only appear when you use the **storefront in a real browser**; the **load generator** calls `api-gateway` directly and does **not** run Faro.
 - Browser spans will automatically stitch to Odigos backend Traces
-- After changing the frontend image, **hard-refresh** the browser so `rum.bundle.js` updates.
 
-### Deploy with browser RUM and Google Gemini (Helm, fresh install)
+### Deploy with LLM Enabled
 
-Combines [Faro](#deploy-odimall-with-grafana-faro-browser-sdk) with **Gemini** for the storefront **AI product blurb**. Point **`rum.endpoint`** at an OTLP **gRPC** host your pods can reach (example: in-cluster LGTM **`lgtm.lgtm:4317`** — no `http://` prefix).
+Enables "Ask AI" feature for products, it returns an explanation of each product on the product page.  Modes for both **Gemini** and **OpenAI** you will need to provide an AI token depending on the model you choose. 
 
+Example for Gemini
 ```bash
 helm upgrade --install odimall ./helm/odimall -n odimall --create-namespace \
-  --set rum.enabled=true \
-  --set rum.endpoint=lgtm.lgtm:4317 \
   --set productService.aiMode=gemini \
   --set productService.gemini.enabled=true \
   --set productService.openai.enabled=false
 ```
 
-Helm creates **`<release>-gemini-credentials`** with a placeholder. Put your real key in the Secret (never commit it), then restart **`product-service`**:
+Helm creates **`<release>-gemini-credentials`** with a placeholder. Put your real key in the Secret, then restart **`product-service`**:
 
 ```bash
 kubectl patch secret odimall-gemini-credentials -n odimall --type merge \
@@ -100,8 +98,6 @@ kubectl patch secret odimall-gemini-credentials -n odimall --type merge \
 
 kubectl rollout restart deployment/product-service -n odimall
 ```
-
-If your Helm release name is not **`odimall`**, use **`<release>-gemini-credentials`** instead. The chart default model is **`gemini-2.5-flash`** — you do not need `--set productService.geminiModel` unless you want another model. Full options and **demo** / **OpenAI** flows: [OpenAI / “AI blurb”](#openai--ai-blurb-product-service).
 
 ### Access the UI
 
@@ -157,9 +153,7 @@ Define these signatures when configuring custom rules:
 - Package: `main`
 - Function: `processNormalMessage`
 
-### OpenAI / “AI blurb” (product-service)
-
-**Never paste API keys into chat, tickets, or git.** If a key was exposed, **revoke it** in the provider console and create a new one; store secrets only in Kubernetes Secrets or a secret manager.
+### LLM “AI blurb” (product-service)
 
 The catalog exposes **`POST /products/{id}/ai-summary`** (via the gateway and **Storefront → product → “AI product blurb”**). Modes:
 
@@ -168,17 +162,6 @@ The catalog exposes **`POST /products/{id}/ai-summary`** (via the gateway and **
 | **`demo`** (default) | Short blurb built **in-process** from DB fields (no network, **no API key**). | No external LLM client spans; HTTP **200**. |
 | **`openai`** | **OpenAI Python SDK**; with Odigos + `opentelemetry-instrumentation-openai-v2` you get **GenAI** spans ([Odigos LLM observability](https://odigos.io/blog/llm-calls-are-the-new-blind-spot)). | Bad/placeholder keys → **401 → 502** until the key is valid. |
 | **`gemini`** | **Google GenAI SDK** (`google-genai`) using **`GEMINI_API_KEY`** ([Google AI Studio](https://aistudio.google.com/apikey)). | Outbound HTTPS to Google; instrumentation depends on your Odigos / SDK setup. |
-
-**“Free AI with no tokens at all”:** hosted models need **some** credential or quota. **Keyless** options remain **self-hosted** (e.g. **[Ollama](https://ollama.com/)**) or this chart’s **`demo`** mode (templated text, not a neural model).
-
-**Helm:** default **`aiMode: demo`**. OpenAI: chart can create **`<release>-openai-credentials`** (placeholder) when `productService.openai.enabled` is true. **Gemini:** set **`productService.gemini.enabled: true`** so Helm creates **`<release>-gemini-credentials`** (placeholder) and mounts **`GEMINI_API_KEY`**; set **`aiMode: gemini`** and **patch** that Secret with a real key, then restart `product-service`.
-
-**Gemini model:** the chart default is **`productService.geminiModel: gemini-2.5-flash`** (env **`GEMINI_MODEL`** on `product-service`). You do **not** need `--set productService.geminiModel=…` on a fresh install. If traces or errors still mention **`gemini-2.0-flash`**, the live Deployment was created from an older chart or **`helm upgrade --reuse-values`** is keeping a stale value — run **`helm upgrade`** with the current chart without pinning an old model, or set **`productService.geminiModel`** / **`kubectl set env deployment/product-service GEMINI_MODEL=…`** once to match [Google’s current model ids](https://ai.google.dev/gemini-api/docs/models).
-
-- **OpenAI:** `helm upgrade … --set productService.aiMode=openai`, then patch **`<release>-openai-credentials`** (`OPENAI_API_KEY`) and `kubectl rollout restart deployment/product-service -n odimall`. Model: `productService.openaiModel`.
-- **Gemini:** e.g. `helm upgrade … --set productService.aiMode=gemini --set productService.gemini.enabled=true` (add `--set productService.openai.enabled=false` if you only want Gemini and no OpenAI secret). Patch **`<release>-gemini-credentials`** with your **`GEMINI_API_KEY`** and restart `product-service`. Override **`productService.geminiModel`** only when you want a different model than the chart default.
-- **Disable OpenAI mount:** `productService.openai.enabled: false`. **Custom OpenAI Secret:** `productService.openai.createSecret: false` and `productService.openai.secretName` (or legacy `openaiApiKeySecretName`).
-- **Custom Gemini Secret:** `productService.gemini.createSecret: false` and `productService.gemini.secretName` pointing at a Secret that contains `GEMINI_API_KEY` (or the key name you set in `productService.gemini.secretKey`).
 
 ### Custom HTTP Headers
 

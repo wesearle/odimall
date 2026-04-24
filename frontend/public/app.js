@@ -64,10 +64,17 @@ async function fetchProducts() {
 
 /* ===== Session ===== */
 function getSessionId() {
-  let id = localStorage.getItem('odimall_session');
+  let id = localStorage.getItem('odigear_session');
+  if (!id) {
+    id = localStorage.getItem('odimall_session');
+    if (id) {
+      localStorage.setItem('odigear_session', id);
+      localStorage.removeItem('odimall_session');
+    }
+  }
   if (!id) {
     id = crypto.randomUUID ? crypto.randomUUID() : generateUUID();
-    localStorage.setItem('odimall_session', id);
+    localStorage.setItem('odigear_session', id);
   }
   return id;
 }

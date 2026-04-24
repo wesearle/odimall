@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OdiMall — Adventure Gear for Every Trail</title>
+  <title>OdiGear — Observability demo storefront</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -15,14 +15,13 @@
   <nav class="navbar">
     <div class="nav-container">
       <a href="#" class="nav-brand" onclick="showCatalog(); return false;">
-        <svg class="nav-logo" viewBox="0 0 32 32" fill="none">
-          <path d="M16 2L3 28h26L16 2z" fill="#2d6a4f"/>
-          <path d="M16 10L9 26h14L16 10z" fill="#40916c"/>
-          <circle cx="16" cy="18" r="2" fill="#d4a373"/>
-        </svg>
-        <span class="nav-brand-text">OdiMall</span>
+        <img src="/images/odigos-logo-mark.svg" alt="" class="nav-odigos-mark" width="36" height="36" />
+        <span class="nav-brand-text">OdiGear</span>
       </a>
-      <p class="nav-tagline">Adventure Gear for Every Trail</p>
+      <p class="nav-tagline">Outdoor gear catalog · demo app built to showcase <a href="https://odigos.io" target="_blank" rel="noopener noreferrer">Odigos</a> Telemetry</p>
+      <a class="nav-odigos-wordmark" href="https://odigos.io" target="_blank" rel="noopener noreferrer" title="Odigos">
+        <img src="/images/odigos-logo-text.svg" alt="Odigos" height="22" width="120" />
+      </a>
       <div class="nav-actions">
         <button class="nav-cart-btn" onclick="showCart()" title="View Cart">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -42,8 +41,8 @@
   <main id="pageCatalog" class="page">
     <section class="hero">
       <div class="hero-content">
-        <h1>Gear Up for Your Next Adventure</h1>
-        <p>Premium outdoor equipment trusted by explorers worldwide</p>
+        <h1>Gear up with the Latest in Outdoor Tech and Apparel</h1>
+        <p>OdiGear is a demo outdoor catalog purpose-built for Odigos instrumentation, for capabilities, problem patterns, and more details see the repo <a href="https://github.com/wesearle/odimall" target="_blank" rel="noopener noreferrer">here</a>.</p>
       </div>
     </section>
     <div class="container">
@@ -148,12 +147,6 @@
   <div id="loadingOverlay" class="loading-overlay" style="display:none">
     <div class="spinner"></div>
   </div>
-
-  <footer class="site-footer">
-    <div class="container">
-      <p>&copy; 2026 OdiMall — Adventure Gear for Every Trail. Demo application.</p>
-    </div>
-  </footer>
 
   <!-- ODIMALL_RUM_CONFIG -->
   <script src="/app.js"></script>
