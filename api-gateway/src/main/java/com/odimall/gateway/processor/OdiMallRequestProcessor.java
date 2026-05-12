@@ -72,6 +72,7 @@ public class OdiMallRequestProcessor {
         if (endpoint.startsWith("/cart")) return "cart-service";
         if (endpoint.startsWith("/users")) return "user-service";
         if (endpoint.startsWith("/orders")) return "order-service";
+        if (endpoint.startsWith("/vm-pipeline")) return "vm-pipeline";
         return "unknown";
     }
 }

@@ -11,6 +11,10 @@ services:
   user-url: ${USER_SERVICE_URL:http://user-service:8084}
   order-url: ${ORDER_SERVICE_URL:http://order-service:8085}
 
+# Optional: laptop/kind → EC2 three-hop demo (C++ alpha on VM). Base URL only, no path.
+vm-pipeline:
+  alpha-url: ${VM_PIPELINE_ALPHA_URL:}
+
 management:
   endpoints:
     web:

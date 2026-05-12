@@ -32,6 +32,9 @@ spec:
               value: "http://user-service:8084"
             - name: ORDER_SERVICE_URL
               value: "http://order-service:8085"
+            # Optional: VM edge demo — set to EC2 alpha base URL, e.g. http://203.0.113.10:9101
+            # - name: VM_PIPELINE_ALPHA_URL
+            #   value: "http://YOUR_EC2_PUBLIC_IP:9101"
           resources:
             requests:
               memory: "256Mi"

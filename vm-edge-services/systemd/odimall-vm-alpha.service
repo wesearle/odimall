@@ -1,0 +1,14 @@
+[Unit]
+Description=OdiMall VM edge — alpha (C++, public :9101)
+After=network.target odimall-vm-beta.service
+Requires=odimall-vm-beta.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/odimall-vm-edge
+ExecStart=/opt/odimall-vm-edge/bin/vm_alpha
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

@@ -32,6 +32,10 @@ spec:
               value: "http://user-service:8084"
             - name: ORDER_SERVICE_URL
               value: "http://order-service:8085"
+            {{- if .Values.apiGateway.vmPipelineAlphaUrl }}
+            - name: VM_PIPELINE_ALPHA_URL
+              value: {{ .Values.apiGateway.vmPipelineAlphaUrl | quote }}
+            {{- end }}
           resources:
             requests:
               memory: "256Mi"

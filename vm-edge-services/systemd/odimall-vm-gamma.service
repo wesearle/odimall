@@ -1,0 +1,14 @@
+[Unit]
+Description=OdiMall VM edge — gamma (Java + Postgres, localhost :9103)
+After=network.target postgresql.service postgresql15.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/odimall-vm-edge
+EnvironmentFile=-/etc/odimall-vm/gamma.env
+ExecStart=/usr/bin/java -jar /opt/odimall-vm-edge/jars/gamma-server.jar
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

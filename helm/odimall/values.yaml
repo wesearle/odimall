@@ -9,6 +9,10 @@ rum:
 rumEnabled: false
 rumEndpoint: ""
 
+# Optional EC2 VM three-hop demo (see vm-edge-services/). Example: http://203.0.113.10:9101
+apiGateway:
+  vmPipelineAlphaUrl: ""
+
 alloy:
   image: grafana/alloy:v1.10.2
   stabilityLevel: experimental

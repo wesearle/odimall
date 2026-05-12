@@ -140,7 +140,12 @@ body {
   }
 }
 
-.nav-actions { margin-left: auto; }
+.nav-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 
 @media (min-width: 768px) {
   .nav-actions { margin-left: 0; order: 4; }
@@ -148,6 +153,27 @@ body {
 
 @media (max-width: 767px) {
   .nav-actions { margin-left: auto; }
+}
+
+.nav-vm-btn {
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  background: rgba(34, 211, 238, 0.08);
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  cursor: pointer;
+  color: var(--secondary);
+  transition: all var(--transition);
+}
+
+.nav-vm-btn:hover {
+  border-color: var(--secondary);
+  box-shadow: 0 0 14px var(--secondary-dim);
+  color: var(--text);
 }
 
 .nav-cart-btn {

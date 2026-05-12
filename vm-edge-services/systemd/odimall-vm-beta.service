@@ -1,0 +1,15 @@
+[Unit]
+Description=OdiMall VM edge — beta (Java, localhost :9102)
+After=network.target odimall-vm-gamma.service
+Requires=odimall-vm-gamma.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/odimall-vm-edge
+EnvironmentFile=-/etc/odimall-vm/beta.env
+ExecStart=/usr/bin/java -jar /opt/odimall-vm-edge/jars/beta-server.jar
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

@@ -124,6 +124,24 @@ function setLoading(on) {
   document.getElementById('loadingOverlay').style.display = on ? 'flex' : 'none';
 }
 
+/** Calls api-gateway → EC2 VM chain (C++ alpha → Java beta → Java gamma + Postgres). Requires VM_PIPELINE_ALPHA_URL in cluster. */
+async function runVmPipelineDemo() {
+  setLoading(true);
+  try {
+    const data = await api('/vm-pipeline/run', { method: 'GET' });
+    if (data.error) {
+      showToast(data.message || data.error, 'error');
+      return;
+    }
+    const svc = data.service || 'vm';
+    showToast(`VM chain OK (${svc} → Java → Java + Postgres). See Network tab for full JSON.`, 'success');
+  } catch (e) {
+    showToast(e.message || 'VM chain failed', 'error');
+  } finally {
+    setLoading(false);
+  }
+}
+
 /* ===== Navigation ===== */
 function showCheckoutPipelineFault() {
   document.getElementById('loadingOverlay').style.display = 'none';
