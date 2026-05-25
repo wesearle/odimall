@@ -7,6 +7,8 @@ Requires=odimall-vm-gamma.service
 Type=simple
 WorkingDirectory=/opt/odimall-vm-edge
 EnvironmentFile=-/etc/odimall-vm/beta.env
+# Distinct OpenTelemetry service name (Odigos VM eBPF otherwise reports both JVMs as "java").
+Environment=OTEL_SERVICE_NAME=vm-edge-beta
 ExecStart=/usr/bin/java -jar /opt/odimall-vm-edge/jars/beta-server.jar
 Restart=on-failure
 RestartSec=2

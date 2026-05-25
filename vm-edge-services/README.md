@@ -61,6 +61,8 @@ export POSTGRES_ODIMALL_VM_PASSWORD='your-long-random-secret'
 # then rewrite gamma.env JDBC_URL password to match before restarting gamma
 ```
 
+If traces show **two Java processes both as `service.name: "java"`**, set **`OTEL_SERVICE_NAME`** on each unit (the shipped systemd files set **`vm-edge-beta`** and **`vm-edge-gamma`**). Copy updated units to `/etc/systemd/system/`, then **`sudo systemctl daemon-reload`** and **`sudo systemctl restart odimall-vm-beta odimall-vm-gamma`**.
+
 ## Logs & systemd
 
 ```bash

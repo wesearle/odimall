@@ -3,5 +3,8 @@ pymysql
 sqlalchemy
 google-cloud-sqlcommenter
 protobuf
+# cryptography 47+ manylinux aarch64 wheels can SIGILL (exit 132) on Docker Desktop / Kind arm64;
+# pin below 47 so linux/arm64 matches Apple Silicon dev clusters while amd64 (e.g. EKS) stays fine.
+cryptography>=43,<47
 openai>=1.50.0
 google-genai>=1.0.0

@@ -6,6 +6,8 @@ After=network.target postgresql.service postgresql15.service
 Type=simple
 WorkingDirectory=/opt/odimall-vm-edge
 EnvironmentFile=-/etc/odimall-vm/gamma.env
+# Distinct OpenTelemetry service name (Odigos VM eBPF otherwise reports both JVMs as "java").
+Environment=OTEL_SERVICE_NAME=vm-edge-gamma
 ExecStart=/usr/bin/java -jar /opt/odimall-vm-edge/jars/gamma-server.jar
 Restart=on-failure
 RestartSec=2

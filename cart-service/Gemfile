@@ -4,3 +4,8 @@ gem 'sinatra-contrib'
 gem 'rackup'
 gem 'puma'
 gem 'json'
+
+# Explicit OTLP traces so spans appear in backends (Odigos injects OTEL_* env; native injection alone did not hook this Rack/Puma boot path reliably).
+gem 'opentelemetry-sdk'
+gem 'opentelemetry-exporter-otlp'
+gem 'opentelemetry-instrumentation-sinatra'
