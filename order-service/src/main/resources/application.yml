@@ -19,6 +19,9 @@ services:
   shipping-url: ${SHIPPING_SERVICE_URL:http://shipping-service:8087}
   inventory-url: ${INVENTORY_SERVICE_URL:http://inventory-service:8088}
 
+shadow-peak:
+  profile-burn-ms: ${SHADOW_PEAK_PROFILE_BURN_MS:2500}
+
 management:
   endpoints:
     web:

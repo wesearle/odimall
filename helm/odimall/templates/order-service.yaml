@@ -40,6 +40,8 @@ spec:
               value: "http://shipping-service:8087"
             - name: INVENTORY_SERVICE_URL
               value: "http://inventory-service:8088"
+            - name: SHADOW_PEAK_PROFILE_BURN_MS
+              value: "2500"
           resources:
             requests:
               memory: "256Mi"

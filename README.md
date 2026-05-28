@@ -213,15 +213,17 @@ The notification service:
 When purchased, the order service:
 - **Connection 1** acquires a `SELECT ... FOR UPDATE` lock on the inventory row
 - **Connection 2** attempts to `UPDATE` the same row — blocks
-- Connection 2 waits until the **5-second** `innodb_lock_wait_timeout` fires
+- Connection 2 waits until the **10-second** `innodb_lock_wait_timeout` fires
 - The lock timeout exception is caught; the order still completes
 - Creates a visible lock contention pattern in database traces
 
 ### Shadow Peak Mystery Crate (Product #11) — policy denial (storefront-only SKU)
 
 - Catalog item for **live UI demos** (same **Demo Chaos** badge treatment as other chaos SKUs). The **load generator excludes** this product ID so automated traffic never purchases it.
-- When a **human** checks out with this item in the cart, **`RetailFulfillmentGate.assessPipelineCoherence`** can deny the order before persistence; the API may respond with **409 Conflict** and a generic message.
+- When a **human** checks out with this item in the cart, **`RetailFulfillmentGate.assessPipelineCoherence`** runs a bounded CPU-heavy coherence probe, then denies the order before persistence; the API may respond with **409 Conflict** and a generic message.
+- In an Odigos CPU profile, look for the long Java frame, then configure custom instrumentation with class **`com.odimall.order.policy.RetailFulfillmentGate`** and method **`assessPipelineCoherence`**.
 - **Without** custom instrumentation on that method, logs and HTTP responses may not explain the denial; **with** instrumentation, inspect **arguments** and **`return.value`** (from `RetailPipelineAssessment.toString()`, containing the attestation) as described in [Enabling custom instrumentation for RetailFulfillmentGate (Shadow Peak demo)](#enabling-custom-instrumentation-for-retailfulfillmentgate-shadow-peak-demo).
+- Tune the profile demo with **`SHADOW_PEAK_PROFILE_BURN_MS`** on `order-service` (default **2500 ms**; set **0** to disable the CPU burn).
 
 ## Products
 

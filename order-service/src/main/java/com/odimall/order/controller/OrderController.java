@@ -225,7 +225,7 @@ public class OrderController {
             lockWaiter = dataSource.getConnection();
             lockWaiter.setAutoCommit(false);
             try (Statement stmt = lockWaiter.createStatement()) {
-                stmt.execute(TraceContextHolder.appendComment("SET innodb_lock_wait_timeout = 5"));
+                stmt.execute(TraceContextHolder.appendComment("SET innodb_lock_wait_timeout = 10"));
             }
 
             try (PreparedStatement ps = lockWaiter.prepareStatement(
