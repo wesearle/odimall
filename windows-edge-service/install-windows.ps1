@@ -10,18 +10,57 @@ param(
     [string]$InstallDir = "C:\opt\odimall-windows-edge",
     [string]$ServiceName = "OdiMallWindowsEdge",
     [string]$BindUrl = "http://0.0.0.0:9201",
-    [int]$FirewallPort = 9201
+    [int]$FirewallPort = 9201,
+    [switch]$SkipDotNetInstall
 )
 
 $ErrorActionPreference = "Stop"
 $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $ScriptRoot
 
-Write-Host "=== OdiMall Windows edge service install ===" -ForegroundColor Cyan
+function Ensure-DotNetSdk {
+    $dotnetInstallDir = Join-Path ${env:ProgramFiles} "dotnet"
+    $dotnetExe = Join-Path $dotnetInstallDir "dotnet.exe"
 
-if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
-    throw "dotnet SDK/runtime not found. Install .NET 8 SDK from https://dotnet.microsoft.com/download"
+    if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
+        if (Test-Path $dotnetExe) {
+            $env:PATH = "$dotnetInstallDir;$env:PATH"
+        }
+    }
+
+    if (Get-Command dotnet -ErrorAction SilentlyContinue) {
+        $version = & dotnet --version
+        Write-Host "Using dotnet SDK $version" -ForegroundColor Green
+        return
+    }
+
+    if ($SkipDotNetInstall) {
+        throw "dotnet SDK not found. Install .NET 8 SDK from https://dotnet.microsoft.com/download or re-run without -SkipDotNetInstall"
+    }
+
+    Write-Host "dotnet not found. Downloading and installing .NET 8 SDK (one-time) ..." -ForegroundColor Yellow
+    $installScript = Join-Path $env:TEMP "dotnet-install.ps1"
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    Invoke-WebRequest -Uri "https://dot.net/v1/dotnet-install.ps1" -OutFile $installScript -UseBasicParsing
+    & $installScript -Channel 8.0 -InstallDir $dotnetInstallDir -Quality GA
+    Remove-Item $installScript -Force -ErrorAction SilentlyContinue
+
+    if (-not (Test-Path $dotnetExe)) {
+        throw "dotnet install finished but $dotnetExe was not created"
+    }
+
+    $machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+    if ($machinePath -notlike "*$dotnetInstallDir*") {
+        [System.Environment]::SetEnvironmentVariable("Path", "$dotnetInstallDir;$machinePath", "Machine")
+    }
+    $env:PATH = "$dotnetInstallDir;$env:PATH"
+
+    $version = & dotnet --version
+    Write-Host "Installed dotnet SDK $version" -ForegroundColor Green
 }
+
+Write-Host "=== OdiMall Windows edge service install ===" -ForegroundColor Cyan
+Ensure-DotNetSdk
 
 Write-Host "Publishing release build to $InstallDir ..."
 dotnet publish WindowsEdgeService.csproj -c Release -r win-x64 --self-contained false -o $InstallDir

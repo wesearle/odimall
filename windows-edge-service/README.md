@@ -19,7 +19,9 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\install-windows.ps1
 ```
 
-The script publishes to `C:\opt\odimall-windows-edge`, opens firewall port **9201**, registers a Windows service **`OdiMallWindowsEdge`**, and smoke-tests `http://127.0.0.1:9201/run`.
+The script **installs .NET 8 SDK automatically** if `dotnet` is missing (via Microsoft’s `dotnet-install.ps1`), then publishes to `C:\opt\odimall-windows-edge`, opens firewall port **9201**, registers a Windows service **`OdiMallWindowsEdge`**, and smoke-tests `http://127.0.0.1:9201/run`.
+
+**Prerequisites:** outbound HTTPS to `dot.net` and `nuget.org` on first install. If auto-install is blocked, install the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) manually and re-run the script.
 
 ## Wire into OdiMall
 
