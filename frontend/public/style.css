@@ -176,6 +176,27 @@ body {
   color: var(--text);
 }
 
+.nav-windows-btn {
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  background: rgba(0, 120, 212, 0.1);
+  border: 1px solid rgba(0, 120, 212, 0.45);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  cursor: pointer;
+  color: #4fc3ff;
+  transition: all var(--transition);
+}
+
+.nav-windows-btn:hover {
+  border-color: #0078d4;
+  box-shadow: 0 0 14px rgba(0, 120, 212, 0.25);
+  color: var(--text);
+}
+
 .nav-cart-btn {
   position: relative;
   background: rgba(255, 255, 255, 0.04);

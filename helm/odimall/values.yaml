@@ -10,8 +10,10 @@ rumEnabled: false
 rumEndpoint: ""
 
 # Optional EC2 VM three-hop demo (see vm-edge-services/). Example: http://203.0.113.10:9101
+# Optional Windows EC2 .NET demo (see windows-edge-service/). Example: http://203.0.113.20:9201
 apiGateway:
   vmPipelineAlphaUrl: ""
+  windowsPipelineBaseUrl: ""
 
 alloy:
   image: grafana/alloy:v1.10.2

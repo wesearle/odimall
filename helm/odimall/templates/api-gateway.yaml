@@ -36,6 +36,10 @@ spec:
             - name: VM_PIPELINE_ALPHA_URL
               value: {{ .Values.apiGateway.vmPipelineAlphaUrl | quote }}
             {{- end }}
+            {{- if .Values.apiGateway.windowsPipelineBaseUrl }}
+            - name: WINDOWS_PIPELINE_BASE_URL
+              value: {{ .Values.apiGateway.windowsPipelineBaseUrl | quote }}
+            {{- end }}
           resources:
             requests:
               memory: "256Mi"

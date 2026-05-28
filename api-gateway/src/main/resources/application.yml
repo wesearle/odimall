@@ -15,6 +15,10 @@ services:
 vm-pipeline:
   alpha-url: ${VM_PIPELINE_ALPHA_URL:}
 
+# Optional: laptop/kind → Windows EC2 .NET edge service. Base URL only, no path.
+windows-pipeline:
+  base-url: ${WINDOWS_PIPELINE_BASE_URL:}
+
 management:
   endpoints:
     web:

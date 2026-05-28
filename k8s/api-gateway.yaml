@@ -35,6 +35,9 @@ spec:
             # Optional: VM edge demo — set to EC2 alpha base URL, e.g. http://203.0.113.10:9101
             # - name: VM_PIPELINE_ALPHA_URL
             #   value: "http://YOUR_EC2_PUBLIC_IP:9101"
+            # Optional: Windows .NET edge demo — e.g. http://203.0.113.20:9201
+            # - name: WINDOWS_PIPELINE_BASE_URL
+            #   value: "http://YOUR_WINDOWS_PUBLIC_IP:9201"
           resources:
             requests:
               memory: "256Mi"

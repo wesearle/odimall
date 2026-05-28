@@ -258,6 +258,19 @@ INSERT INTO inventory (product_id, quantity)
 SELECT 11, 10000 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM inventory WHERE product_id = 11);
 ```
 
+## Edge demos (EC2 VM chain + Windows .NET)
+
+The storefront navbar includes optional buttons that call external hosts through the API gateway (trace headers and OdiMall correlation headers are forwarded):
+
+| Button | Gateway route | Upstream | Config |
+|--------|---------------|----------|--------|
+| **VM chain** | `GET /vm-pipeline/run` | EC2 Linux VM `GET /chain` (C++ → Java → Postgres) | `VM_PIPELINE_ALPHA_URL` / Helm `apiGateway.vmPipelineAlphaUrl` |
+| **Windows** | `GET /windows-pipeline/run` | Windows EC2 `GET /run` (.NET) | `WINDOWS_PIPELINE_BASE_URL` / Helm `apiGateway.windowsPipelineBaseUrl` |
+
+**Windows install:** see [`windows-edge-service/README.md`](windows-edge-service/README.md) — run `install-windows.ps1` on a Windows EC2 instance, then set the gateway URL to `http://<public-ip>:9201`.
+
+**VM install:** see [`vm-edge-services/README.md`](vm-edge-services/README.md).
+
 ## Project Structure
 
 ```
@@ -275,6 +288,8 @@ odimall/
 ├── product-service/       # Python/Flask — product catalog with SQL commenter
 ├── shipping-service/      # C++ — shipping cost calculation
 ├── user-service/          # Node.js/Express — user/shipping info
+├── vm-edge-services/      # EC2 Linux C++/Java/Postgres chain (VM navbar button)
+├── windows-edge-service/  # EC2 Windows .NET edge service (Windows navbar button)
 ├── load-generator/        # Go — continuous traffic generator
 ├── build-push.sh          # Multi-arch image build & push script
 └── README.md

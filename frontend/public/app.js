@@ -142,6 +142,24 @@ async function runVmPipelineDemo() {
   }
 }
 
+/** Calls api-gateway → Windows EC2 .NET edge service. Requires WINDOWS_PIPELINE_BASE_URL in cluster. */
+async function runWindowsPipelineDemo() {
+  setLoading(true);
+  try {
+    const data = await api('/windows-pipeline/run', { method: 'GET' });
+    if (data.error) {
+      showToast(data.message || data.error, 'error');
+      return;
+    }
+    const host = data.machineName || data.service || 'windows-edge';
+    showToast(`Windows service OK (.NET on ${host}). See Network tab for full JSON.`, 'success');
+  } catch (e) {
+    showToast(e.message || 'Windows service call failed', 'error');
+  } finally {
+    setLoading(false);
+  }
+}
+
 /* ===== Navigation ===== */
 function showCheckoutPipelineFault() {
   document.getElementById('loadingOverlay').style.display = 'none';
