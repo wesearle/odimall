@@ -43,16 +43,16 @@ CREATE TABLE order_items (
 );
 
 INSERT INTO products (id, name, description, price, image_url, category) VALUES
-(1, 'Trail Blazer Hiking Boots', 'Waterproof leather boots with Vibram soles for all-terrain hiking. Features ankle support and breathable lining.', 129.99, '/images/boots.svg', 'Footwear'),
-(2, 'Summit Backpack 65L', 'Ultralight backpack with adjustable suspension system. Multiple compartments and hydration compatible.', 189.99, '/images/backpack.svg', 'Packs'),
-(3, 'Glacier Sleeping Bag', '4-season down sleeping bag rated to -20°F. Mummy style with draft collar and hood.', 149.99, '/images/sleeping-bag.svg', 'Sleep'),
-(4, 'Alpine Trekking Poles', 'Carbon fiber poles with cork grips and quick-lock adjustment. Includes snow baskets.', 79.99, '/images/poles.svg', 'Accessories'),
-(5, 'Storm Chaser Tent 4P', '4-person tent with 3000mm waterproof rating. Freestanding design with vestibule storage.', 299.99, '/images/tent.svg', 'Shelter'),
-(6, 'Rapid River Kayak', 'Inflatable touring kayak with high-pressure drop-stitch floor. Includes paddle and pump.', 499.99, '/images/kayak.svg', 'Water'),
-(7, 'Peak Performance Jacket', '3-layer Gore-Tex shell with helmet-compatible hood. Pit zips and adjustable cuffs.', 219.99, '/images/jacket.svg', 'Apparel'),
-(8, 'Wilderness First Aid Kit', 'Comprehensive 120-piece kit for backcountry emergencies. Waterproof case included.', 49.99, '/images/firstaid.svg', 'Safety'),
-(9, 'Canyon Explorer Headlamp', '800 lumen rechargeable headlamp with red night mode. IPX8 waterproof rating.', 39.99, '/images/headlamp.svg', 'Lighting'),
-(10, 'Mountain Stream Water Filter', 'Gravity-fed filter system removing 99.99% of bacteria. Filters up to 1500 liters.', 34.99, '/images/filter.svg', 'Hydration');
+(1, 'Trail Blazer Hiking Boots', 'Waterproof leather boots with Vibram soles for all-terrain hiking. Features ankle support and breathable lining.', 129.99, '/images/boots.png', 'Footwear'),
+(2, 'Summit Backpack 65L', 'Ultralight backpack with adjustable suspension system. Multiple compartments and hydration compatible.', 189.99, '/images/backpack.png', 'Packs'),
+(3, 'Glacier Sleeping Bag', '4-season down sleeping bag rated to -20°F. Mummy style with draft collar and hood.', 149.99, '/images/sleeping-bag.png', 'Sleep'),
+(4, 'Alpine Trekking Poles', 'Carbon fiber poles with cork grips and quick-lock adjustment. Includes snow baskets.', 79.99, '/images/poles.png', 'Accessories'),
+(5, 'Storm Chaser Tent 4P', '4-person tent with 3000mm waterproof rating. Freestanding design with vestibule storage.', 299.99, '/images/tent.png', 'Shelter'),
+(6, 'Rapid River Kayak', 'Inflatable touring kayak with high-pressure drop-stitch floor. Includes paddle and pump.', 499.99, '/images/kayak.png', 'Water'),
+(7, 'Peak Performance Jacket', '3-layer Gore-Tex shell with helmet-compatible hood. Pit zips and adjustable cuffs.', 219.99, '/images/jacket.png', 'Apparel'),
+(8, 'Wilderness First Aid Kit', 'Comprehensive 120-piece kit for backcountry emergencies. Waterproof case included.', 49.99, '/images/firstaid.png', 'Safety'),
+(9, 'Canyon Explorer Headlamp', '800 lumen rechargeable headlamp with red night mode. IPX8 waterproof rating.', 39.99, '/images/headlamp.png', 'Lighting'),
+(10, 'Mountain Stream Water Filter', 'Gravity-fed filter system removing 99.99% of bacteria. Filters up to 1500 liters.', 34.99, '/images/filter.png', 'Hydration');
 
 INSERT INTO inventory (product_id, quantity) VALUES
 (1, 10000), (2, 10000), (3, 10000), (4, 10000), (5, 10000),

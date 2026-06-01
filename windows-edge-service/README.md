@@ -70,8 +70,9 @@ http://3.146.255.106:4317
 ```
 
 - **Service name:** `windows-edge`
+- **Resource attributes (semantic conventions):** `os.type=windows`, `os.description`, `os.version`, `host.name`, `host.arch`, `host.type=cloud`, `cloud.provider=aws`, `cloud.platform=aws_ec2`
 - **ASP.NET Core** HTTP spans (incoming `/run`)
-- **Custom span:** `WindowsEdgeRun` from `ActivitySource` `OdiMall.WindowsEdge`
+- **Custom span:** `WindowsEdgeRun` (same OS/host tags on the span for easy inspection)
 
 After redeploying the Windows service, click the storefront **Windows** button and search Tempo for `resource.service.name = "windows-edge"`.
 

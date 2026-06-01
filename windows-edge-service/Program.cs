@@ -15,6 +15,8 @@ var bindUrl = Environment.GetEnvironmentVariable("WINDOWS_EDGE_BIND_URL")
     ?? Environment.GetEnvironmentVariable("ASPNETCORE_URLS")
     ?? "http://0.0.0.0:9201";
 
+var hostAttributes = WindowsHostAttributes.Collect();
+
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
     Args = args,
@@ -26,16 +28,16 @@ builder.WebHost.UseUrls(bindUrl);
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(resource => resource
         .AddService(serviceName: ServiceName, serviceVersion: "1.0.0")
-        .AddAttributes(new Dictionary<string, object>
-        {
-            ["deployment.environment"] = "demo",
-            ["host.name"] = Environment.MachineName
-        }))
+        .AddAttributes(hostAttributes.ToResourceDictionary()))
     .WithTracing(tracing => tracing
         .AddSource(WindowsEdgeTelemetry.ActivitySourceName)
         .AddAspNetCoreInstrumentation(options =>
         {
             options.RecordException = true;
+            options.EnrichWithHttpRequest = (activity, request) =>
+            {
+                WindowsHostAttributes.ApplySemanticTags(activity, hostAttributes);
+            };
         })
         .AddOtlpExporter(options =>
         {
@@ -56,7 +58,7 @@ app.Use(async (context, next) =>
 app.MapGet("/run", (HttpContext ctx) =>
 {
     using var activity = WindowsEdgeTelemetry.ActivitySource.StartActivity("WindowsEdgeRun");
-    activity?.SetTag("odimall.windows.platform", RuntimeInformation.OSDescription);
+    WindowsHostAttributes.ApplySemanticTags(activity, hostAttributes);
 
     var traceHeaders = new List<string>();
     foreach (var name in new[] { "traceparent", "tracestate", "baggage" })
@@ -85,10 +87,14 @@ app.MapGet("/run", (HttpContext ctx) =>
         service = ServiceName,
         language = "dotnet",
         port = ResolvePort(bindUrl),
-        platform = RuntimeInformation.OSDescription,
+        platform = hostAttributes.OsDescription,
+        osType = hostAttributes.OsType,
+        osVersion = hostAttributes.OsVersion,
+        hostArch = hostAttributes.HostArch,
+        hostType = hostAttributes.HostType,
         osArchitecture = RuntimeInformation.OSArchitecture.ToString(),
         processArchitecture = RuntimeInformation.ProcessArchitecture.ToString(),
-        machineName = Environment.MachineName,
+        machineName = hostAttributes.HostName,
         dotnetVersion = Environment.Version.ToString(),
         message = "OdiMall Windows edge demo service reached from the storefront.",
         incomingTraceHeaders = traceHeaders,
@@ -124,4 +130,60 @@ static class WindowsEdgeTelemetry
 {
     public const string ActivitySourceName = "OdiMall.WindowsEdge";
     public static readonly ActivitySource ActivitySource = new(ActivitySourceName);
+}
+
+sealed class WindowsHostAttributes
+{
+    public string OsType { get; init; } = "windows";
+    public string OsDescription { get; init; } = RuntimeInformation.OSDescription;
+    public string OsVersion { get; init; } = Environment.OSVersion.Version.ToString();
+    public string HostName { get; init; } = Environment.MachineName;
+    public string HostArch { get; init; } = MapHostArch(RuntimeInformation.ProcessArchitecture);
+    public string HostType { get; init; } = "cloud";
+    public string CloudProvider { get; init; } = "aws";
+    public string CloudPlatform { get; init; } = "aws_ec2";
+    public string DeploymentEnvironment { get; init; } = "demo";
+
+    public static WindowsHostAttributes Collect() => new();
+
+    public Dictionary<string, object> ToResourceDictionary() => new()
+    {
+        ["deployment.environment"] = DeploymentEnvironment,
+        ["os.type"] = OsType,
+        ["os.description"] = OsDescription,
+        ["os.version"] = OsVersion,
+        ["host.name"] = HostName,
+        ["host.arch"] = HostArch,
+        ["host.type"] = HostType,
+        ["cloud.provider"] = CloudProvider,
+        ["cloud.platform"] = CloudPlatform,
+        ["process.runtime.name"] = "dotnet",
+        ["process.runtime.version"] = Environment.Version.ToString(),
+    };
+
+    public static void ApplySemanticTags(Activity? activity, WindowsHostAttributes attrs)
+    {
+        if (activity is null)
+        {
+            return;
+        }
+
+        activity.SetTag("os.type", attrs.OsType);
+        activity.SetTag("os.description", attrs.OsDescription);
+        activity.SetTag("os.version", attrs.OsVersion);
+        activity.SetTag("host.name", attrs.HostName);
+        activity.SetTag("host.arch", attrs.HostArch);
+        activity.SetTag("host.type", attrs.HostType);
+        activity.SetTag("cloud.provider", attrs.CloudProvider);
+        activity.SetTag("cloud.platform", attrs.CloudPlatform);
+    }
+
+    private static string MapHostArch(Architecture architecture) => architecture switch
+    {
+        Architecture.X64 => "amd64",
+        Architecture.Arm64 => "arm64",
+        Architecture.X86 => "x86",
+        Architecture.Arm => "arm32",
+        _ => architecture.ToString().ToLowerInvariant()
+    };
 }

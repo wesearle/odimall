@@ -17,7 +17,7 @@ const SHADOW_PEAK_MYSTERY_CRATE = {
   name: 'Shadow Peak Mystery Crate',
   price: 59.99,
   category: 'Limited',
-  image: '/images/mystery-crate.svg',
+  image: '/images/mystery-crate.png',
   chaos: true,
   description: 'Limited surprise crate for live storefront demos. Automated load tests never purchase this SKU.'
 };
@@ -47,16 +47,16 @@ async function fetchProducts() {
   } catch (e) {
     console.warn('Could not load products from API, using fallback', e);
     PRODUCT_DATA = [
-      { id: 1, name: 'Trail Blazer Hiking Boots', price: 129.99, category: 'Footwear', image: '/images/boots.svg', chaos: false, description: 'Rugged waterproof hiking boots with Vibram soles and ankle support.' },
-      { id: 2, name: 'Summit Backpack 65L', price: 189.99, category: 'Packs', image: '/images/backpack.svg', chaos: false, description: 'Full-featured expedition backpack with adjustable torso length.' },
-      { id: 3, name: 'Glacier Sleeping Bag', price: 149.99, category: 'Sleep', image: '/images/sleeping-bag.svg', chaos: true, description: 'Ultra-warm mummy-style sleeping bag rated to 15°F.' },
-      { id: 4, name: 'Alpine Trekking Poles', price: 79.99, category: 'Accessories', image: '/images/poles.svg', chaos: false, description: 'Lightweight carbon fiber trekking poles with ergonomic cork grips.' },
-      { id: 5, name: 'Storm Chaser Tent 4P', price: 299.99, category: 'Shelter', image: '/images/tent.svg', chaos: true, description: 'Four-person, three-season tent with full-coverage rainfly.' },
-      { id: 6, name: 'Rapid River Kayak', price: 499.99, category: 'Water', image: '/images/kayak.svg', chaos: false, description: 'Inflatable touring kayak built for rivers and lakes.' },
-      { id: 7, name: 'Peak Performance Jacket', price: 219.99, category: 'Apparel', image: '/images/jacket.svg', chaos: false, description: 'Three-layer waterproof hardshell jacket with fully taped seams.' },
-      { id: 8, name: 'Wilderness First Aid Kit', price: 49.99, category: 'Safety', image: '/images/firstaid.svg', chaos: false, description: 'Comprehensive 120-piece backcountry first aid kit.' },
-      { id: 9, name: 'Canyon Explorer Headlamp', price: 39.99, category: 'Lighting', image: '/images/headlamp.svg', chaos: false, description: '350-lumen rechargeable headlamp with red night-vision mode.' },
-      { id: 10, name: 'Mountain Stream Water Filter', price: 34.99, category: 'Hydration', image: '/images/filter.svg', chaos: false, description: 'Portable hollow-fiber water filter that removes 99.99% of bacteria.' },
+      { id: 1, name: 'Trail Blazer Hiking Boots', price: 129.99, category: 'Footwear', image: '/images/boots.png', chaos: false, description: 'Rugged waterproof hiking boots with Vibram soles and ankle support.' },
+      { id: 2, name: 'Summit Backpack 65L', price: 189.99, category: 'Packs', image: '/images/backpack.png', chaos: false, description: 'Full-featured expedition backpack with adjustable torso length.' },
+      { id: 3, name: 'Glacier Sleeping Bag', price: 149.99, category: 'Sleep', image: '/images/sleeping-bag.png', chaos: true, description: 'Ultra-warm mummy-style sleeping bag rated to 15°F.' },
+      { id: 4, name: 'Alpine Trekking Poles', price: 79.99, category: 'Accessories', image: '/images/poles.png', chaos: false, description: 'Lightweight carbon fiber trekking poles with ergonomic cork grips.' },
+      { id: 5, name: 'Storm Chaser Tent 4P', price: 299.99, category: 'Shelter', image: '/images/tent.png', chaos: true, description: 'Four-person, three-season tent with full-coverage rainfly.' },
+      { id: 6, name: 'Rapid River Kayak', price: 499.99, category: 'Water', image: '/images/kayak.png', chaos: false, description: 'Inflatable touring kayak built for rivers and lakes.' },
+      { id: 7, name: 'Peak Performance Jacket', price: 219.99, category: 'Apparel', image: '/images/jacket.png', chaos: false, description: 'Three-layer waterproof hardshell jacket with fully taped seams.' },
+      { id: 8, name: 'Wilderness First Aid Kit', price: 49.99, category: 'Safety', image: '/images/firstaid.png', chaos: false, description: 'Comprehensive 120-piece backcountry first aid kit.' },
+      { id: 9, name: 'Canyon Explorer Headlamp', price: 39.99, category: 'Lighting', image: '/images/headlamp.png', chaos: false, description: '350-lumen rechargeable headlamp with red night-vision mode.' },
+      { id: 10, name: 'Mountain Stream Water Filter', price: 34.99, category: 'Hydration', image: '/images/filter.png', chaos: false, description: 'Portable hollow-fiber water filter that removes 99.99% of bacteria.' },
       { ...SHADOW_PEAK_MYSTERY_CRATE }
     ];
   }

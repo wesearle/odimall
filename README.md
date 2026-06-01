@@ -251,7 +251,7 @@ The storefront **merges in** the Shadow Peak row on the client when `/products` 
 INSERT INTO products (id, name, description, price, image_url, category)
 SELECT 11, 'Shadow Peak Mystery Crate',
   'Limited surprise crate for in-store demos. Checkout is restricted to the live storefront; automated buyers cannot purchase this SKU.',
-  59.99, '/images/mystery-crate.svg', 'Limited'
+  59.99, '/images/mystery-crate.png', 'Limited'
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM products WHERE id = 11);
 
 INSERT INTO inventory (product_id, quantity)
