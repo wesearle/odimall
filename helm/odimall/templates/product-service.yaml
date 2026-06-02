@@ -54,12 +54,28 @@ spec:
                   name: {{ include "odimall.gemini.secretName" . | quote }}
                   key: {{ include "odimall.gemini.secretKey" . | quote }}
 {{- end }}
+{{- if .Values.productService.langfuse.enabled }}
+            - name: LANGFUSE_ENABLED
+              value: "true"
+            - name: LANGFUSE_BASE_URL
+              value: {{ .Values.productService.langfuse.baseUrl | default "https://cloud.langfuse.com" | quote }}
+            - name: LANGFUSE_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "odimall.langfuse.secretName" . | quote }}
+                  key: {{ include "odimall.langfuse.publicKeySecretKey" . | quote }}
+            - name: LANGFUSE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "odimall.langfuse.secretName" . | quote }}
+                  key: {{ include "odimall.langfuse.secretKeySecretKey" . | quote }}
+{{- end }}
           resources:
             requests:
-              memory: "128Mi"
+              memory: {{ if .Values.productService.langfuse.enabled }}"256Mi"{{ else }}"128Mi"{{ end }}
               cpu: "100m"
             limits:
-              memory: "256Mi"
+              memory: {{ if .Values.productService.langfuse.enabled }}"512Mi"{{ else }}"256Mi"{{ end }}
               cpu: "250m"
 
 ---

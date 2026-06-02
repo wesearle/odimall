@@ -3,17 +3,29 @@ import time
 import logging
 import urllib.parse
 
+# Path fix for Langfuse vs Odigos OTEL must run before any opentelemetry import.
+from langfuse_setup import flush_langfuse, init_langfuse, langfuse_enabled, observe_llm
+
 from flask import Flask, jsonify, request
 from sqlalchemy import create_engine, event, text
 from google.cloud.sqlcommenter.sqlalchemy.executor import BeforeExecuteFactory
 
-try:
-    from opentelemetry.trace.propagation.tracecontext import (
-        TraceContextTextMapPropagator,
-    )
-    propagator = TraceContextTextMapPropagator()
-except ImportError:
-    propagator = None
+_propagator = None
+
+
+def _get_propagator():
+    global _propagator
+    if _propagator is not None:
+        return _propagator
+    try:
+        from opentelemetry.trace.propagation.tracecontext import (
+            TraceContextTextMapPropagator,
+        )
+
+        _propagator = TraceContextTextMapPropagator()
+    except ImportError:
+        _propagator = False
+    return _propagator
 
 app = Flask(__name__)
 
@@ -54,13 +66,16 @@ def demo_ai_summary(product, tone):
 
 
 def get_openai_client():
-    """Lazy OpenAI client; Odigos Python distro auto-instruments the official SDK (openai-v2)."""
+    """Lazy OpenAI client; Langfuse wraps SDK when configured."""
     global _openai_client
     api_key = os.getenv("OPENAI_API_KEY", "").strip()
     if not api_key:
         return None
     if _openai_client is None:
-        from openai import OpenAI
+        if langfuse_enabled():
+            from langfuse.openai import OpenAI
+        else:
+            from openai import OpenAI
 
         _openai_client = OpenAI(api_key=api_key)
     return _openai_client
@@ -78,6 +93,7 @@ def build_copywriter_prompt(product, tone):
     )
 
 
+@observe_llm(name="gemini-product-blurb")
 def generate_with_gemini(user_prompt):
     from google import genai
     from google.genai import types
@@ -110,7 +126,8 @@ def connect_with_retry(max_wait=30, interval=2):
                 conn.execute(text("SELECT 1"))
             log.info("Connected to MySQL")
 
-            if propagator is not None:
+            propagator = _get_propagator()
+            if propagator:
                 log.info("Using OpenTelemetry auto-instrumentation for SQL commenter")
                 listener = BeforeExecuteFactory(with_opentelemetry=True)
             else:
@@ -165,6 +182,7 @@ def get_product(product_id):
 
 
 @app.route("/products/<int:product_id>/ai-summary", methods=["POST"])
+@observe_llm(name="ai-product-summary")
 def ai_product_summary(product_id):
     """
     Merchandising blurb: ODIMALL_AI_MODE demo | openai | gemini (env + README).
@@ -234,6 +252,7 @@ def ai_product_summary(product_id):
             return jsonify({"error": "Empty completion from Gemini"}), 502
         gmodel = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
         log.info("AI summary for product %d model=%s (gemini)", product_id, gmodel)
+        flush_langfuse()
         return jsonify(
             {
                 "productId": product["id"],
@@ -277,6 +296,7 @@ def ai_product_summary(product_id):
 
     try:
         completion = client.chat.completions.create(
+            name="product-ai-summary",
             model=model,
             messages=[
                 {
@@ -287,6 +307,11 @@ def ai_product_summary(product_id):
             ],
             max_tokens=256,
             temperature=0.7,
+            metadata={
+                "product_id": str(product_id),
+                "product_name": product["name"],
+                "category": product["category"],
+            },
         )
     except Exception as err:
         log.exception("OpenAI request failed for product %s", product_id)
@@ -305,6 +330,7 @@ def ai_product_summary(product_id):
         getattr(usage, "prompt_tokens", None) if usage else None,
         getattr(usage, "completion_tokens", None) if usage else None,
     )
+    flush_langfuse()
 
     return jsonify(
         {
@@ -320,8 +346,12 @@ def ai_product_summary(product_id):
 
 
 def main():
+    init_langfuse()
     connect_with_retry()
-    app.run(host="0.0.0.0", port=8082, debug=False)
+    try:
+        app.run(host="0.0.0.0", port=8082, debug=False)
+    finally:
+        flush_langfuse()
 
 
 if __name__ == "__main__":

@@ -1,0 +1,14 @@
+# Ensure Odigos instruments the frontend BFF (browser telemetry is still ClickStack/HyperDX).
+apiVersion: odigos.io/v1alpha1
+kind: Source
+metadata:
+  name: instrument-frontend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/part-of: odimall
+spec:
+  disableInstrumentation: false
+  workload:
+    kind: Deployment
+    name: frontend
+    namespace: {{ .Release.Namespace }}

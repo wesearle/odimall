@@ -32,12 +32,27 @@ spec:
             - name: RUM_PROXY_TARGET
               value: "http://{{ .Release.Name }}-rum-alloy.{{ .Release.Namespace }}.svc.cluster.local:9998"
 {{- end }}
+{{- if or .Values.clickstack.enabled .Values.clickstackEnabled }}
+{{- $clickstackUrl := include "odimall.clickstack.collectorUrl" . }}
+{{- if empty $clickstackUrl }}{{ fail "clickstack.url (or clickstackUrl) is required when clickstack.enabled / clickstackEnabled is true" }}{{ end }}
+            - name: CLICKSTACK_ENABLED
+              value: "true"
+            - name: CLICKSTACK_PROXY_TARGET
+              value: {{ $clickstackUrl | quote }}
+            - name: CLICKSTACK_SERVICE
+              value: {{ .Values.clickstack.service | default "odigear-frontend" | quote }}
+            - name: CLICKSTACK_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "odimall.clickstack.secretName" . }}
+                  key: {{ include "odimall.clickstack.secretKey" . }}
+{{- end }}
           resources:
             requests:
-              memory: "128Mi"
+              memory: {{ if or .Values.clickstack.enabled .Values.clickstackEnabled }}"256Mi"{{ else }}"128Mi"{{ end }}
               cpu: "100m"
             limits:
-              memory: "256Mi"
+              memory: {{ if or .Values.clickstack.enabled .Values.clickstackEnabled }}"512Mi"{{ else }}"256Mi"{{ end }}
               cpu: "250m"
 
 ---

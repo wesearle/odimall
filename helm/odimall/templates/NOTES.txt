@@ -1,35 +1,60 @@
 OdiMall has been installed in namespace {{ .Release.Namespace }}.
 
-{{- if or .Values.rum.enabled .Values.rumEnabled }}
-
-Grafana Faro RUM is enabled: the frontend proxies browser telemetry to Alloy
-({{ .Release.Name }}-rum-alloy:9998), which forwards OTLP to {{ include "odimall.rum.otlpEndpoint" . }}.
-
-Use the storefront in a real browser (not only the load generator) so Faro can send data.
-
-{{- end }}
-{{- if or .Values.productService.openai.enabled .Values.productService.gemini.enabled }}
-
-Product blurb: **aiMode={{ .Values.productService.aiMode }}** — `demo` = local text only; `openai` = OpenAI SDK; `gemini` = Google Generative AI (Gemini) SDK (README).
-{{- if .Values.productService.openai.enabled }}
-{{- $defaultOpenaiSecret := printf "%s-openai-credentials" .Release.Name }}
-{{- $openaiSecret := include "odimall.openai.secretName" . }}
- OpenAI: **Secret/{{ $openaiSecret }}** (key {{ include "odimall.openai.secretKey" . }}).
-{{- if and .Values.productService.openai.createSecret (eq $openaiSecret $defaultOpenaiSecret) }}
-  Helm may create a **placeholder** key there — patch before **aiMode=openai**.
-{{- end }}
-{{- end }}
-{{- if .Values.productService.gemini.enabled }}
-{{- $defaultGeminiSecret := printf "%s-gemini-credentials" .Release.Name }}
-{{- $geminiSecret := include "odimall.gemini.secretName" . }}
- Gemini: **Secret/{{ $geminiSecret }}** (key {{ include "odimall.gemini.secretKey" . }}).
-{{- if and .Values.productService.gemini.createSecret (eq $geminiSecret $defaultGeminiSecret) }}
-  Helm may create a **placeholder** key there — patch before **aiMode=gemini**.
-{{- end }}
-{{- end }}
-
-{{- end }}
-
-Access the UI (example):
+Access the UI:
   kubectl port-forward -n {{ .Release.Namespace }} svc/frontend 8080:8080
   open http://localhost:8080
+
+================================================================================
+1) Odigos — all microservices (including frontend BFF)
+================================================================================
+Ensure the **odimall** namespace (or each Deployment) is marked for instrumentation in the Odigos UI.
+The frontend is no longer excluded by Helm; Odigos eBPF + Node agent should show **frontend** spans.
+
+If an old **exclude-frontend** Source still exists, delete it:
+  kubectl delete source exclude-frontend -n {{ .Release.Namespace }} --ignore-not-found
+
+Restart workloads after changing Odigos sources:
+  kubectl rollout restart deployment -n {{ .Release.Namespace }} --all
+
+================================================================================
+2) ClickStack session replay + browser traces
+================================================================================
+{{- if or .Values.clickstack.enabled .Values.clickstackEnabled }}
+Browser SDK posts to /clickstack → {{ include "odimall.clickstack.collectorUrl" . }}
+Service name in ClickStack: **{{ .Values.clickstack.service | default "odigear-frontend" }}**
+
+Patch the ingestion key (must match your ClickStack / Odigos OTLP HTTP destination Authorization value):
+  kubectl patch secret {{ include "odimall.clickstack.secretName" . }} -n {{ .Release.Namespace }} \
+    --type merge -p '{"stringData":{"{{ include "odimall.clickstack.secretKey" . }}":"YOUR_CLICKSTACK_INGESTION_KEY"}}'
+  kubectl rollout restart deployment/frontend -n {{ .Release.Namespace }}
+
+Use a **real browser** (not only the load generator). Open Sessions / Session Replay in ClickStack.
+Use incognito or clear cookies for a fresh replay session.
+{{- else }}
+ClickStack is disabled. Enable with:
+  helm upgrade {{ .Release.Name }} ./helm/odimall -n {{ .Release.Namespace }} --reuse-values \
+    --set clickstack.enabled=true --set clickstack.url=http://YOUR_COLLECTOR:4318
+{{- end }}
+
+================================================================================
+3) Langfuse LLM traces (product-service)
+================================================================================
+{{- if .Values.productService.langfuse.enabled }}
+Patch Langfuse keys (US cloud example):
+  kubectl patch secret {{ include "odimall.langfuse.secretName" . }} -n {{ .Release.Namespace }} \
+    --type merge -p '{"stringData":{"{{ include "odimall.langfuse.publicKeySecretKey" . }}":"pk-lf-...","{{ include "odimall.langfuse.secretKeySecretKey" . }}":"sk-lf-..."}}'
+  kubectl rollout restart deployment/product-service -n {{ .Release.Namespace }}
+
+View traces: {{ .Values.productService.langfuse.baseUrl | default "https://cloud.langfuse.com" }}
+Trigger: storefront → product page → **AI product blurb** (aiMode={{ .Values.productService.aiMode }}).
+
+{{- if .Values.productService.gemini.enabled }}
+Gemini API key (required for aiMode=gemini):
+  kubectl patch secret {{ include "odimall.gemini.secretName" . }} -n {{ .Release.Namespace }} \
+    --type merge -p '{"stringData":{"{{ include "odimall.gemini.secretKey" . }}":"YOUR_GEMINI_API_KEY"}}'
+{{- end }}
+{{- else }}
+Langfuse is disabled on product-service.
+{{- end }}
+
+Helm only creates placeholder Secrets on first install; `helm upgrade --reuse-values` will not overwrite patched keys.

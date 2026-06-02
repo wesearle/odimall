@@ -87,6 +87,13 @@ public class GatewayController {
         if (correlationId != null) headers.set("X-OdiMall-Correlation-Id", correlationId);
         if (timestamp != null) headers.set("X-OdiMall-Timestamp", timestamp);
 
+        for (String name : Set.of("traceparent", "tracestate", "baggage")) {
+            String value = request.getHeader(name);
+            if (value != null && !value.isBlank()) {
+                headers.set(name, value);
+            }
+        }
+
         HttpMethod method = HttpMethod.valueOf(request.getMethod());
         HttpEntity<String> entity = new HttpEntity<>(body, headers);
 

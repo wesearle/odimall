@@ -9,8 +9,25 @@ rum:
 rumEnabled: false
 rumEndpoint: ""
 
-# Optional EC2 VM three-hop demo (see vm-edge-services/). Example: http://203.0.113.10:9101
-# Optional Windows EC2 .NET demo (see windows-edge-service/). Example: http://203.0.113.20:9201
+# ClickStack / HyperDX browser SDK (session replay, RUM, frontend traces).
+# Self-hosted: set url to your OTLP HTTP collector (port 4318) and provide an ingestion API key.
+clickstack:
+  enabled: false
+  url: ""
+  service: odigear-frontend
+  createSecret: true
+  secretName: ""
+  secretKey: CLICKSTACK_API_KEY
+  dummyApiKey: "replace-me-with-your-clickstack-ingestion-key"
+
+clickstackEnabled: false
+clickstackUrl: ""
+
+# When true, creates an Odigos Source that disables instrumentation on the frontend Deployment.
+# Leave false so Odigos instruments the BFF alongside ClickStack browser SDK (session replay).
+odigos:
+  excludeFrontend: false
+
 apiGateway:
   vmPipelineAlphaUrl: ""
   windowsPipelineBaseUrl: ""
@@ -43,3 +60,12 @@ productService:
     secretName: ""
     secretKey: GEMINI_API_KEY
     dummyApiKey: "replace-me-with-your-gemini-api-key"
+  langfuse:
+    enabled: false
+    baseUrl: "https://cloud.langfuse.com"
+    createSecret: true
+    secretName: ""
+    publicKeySecretKey: LANGFUSE_PUBLIC_KEY
+    secretKeySecretKey: LANGFUSE_SECRET_KEY
+    dummyPublicKey: "pk-lf-replace-me-with-your-langfuse-public-key"
+    dummySecretKey: "sk-lf-replace-me-with-your-langfuse-secret-key"
