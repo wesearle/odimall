@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -16,6 +17,14 @@ var (
 	interval   = parseDuration(getEnv("INTERVAL", "5s"))
 	client     = &http.Client{Timeout: 30 * time.Second}
 )
+
+func kayakFaultEnabled() bool {
+	v := strings.ToLower(strings.TrimSpace(getEnv("KAYAK_FAULT_ENABLED", "false")))
+	return v == "true" || v == "1"
+}
+
+// rapidRiverKayakProductID is the Rapid River Kayak SKU (Kafka notification fault demo).
+const rapidRiverKayakProductID = 6
 
 // uiManualDemoProductID matches order-service RetailFulfillmentGate.MANUAL_FULFILLMENT_HOLD_SKU — storefront only.
 const uiManualDemoProductID = 11
@@ -146,32 +155,55 @@ func fetchProducts() ([]Product, error) {
 	return products, nil
 }
 
-func placeOrder(products []Product) error {
-	numItems := rand.Intn(3) + 1
-	items := make([]OrderItem, 0, numItems)
-	used := make(map[int]bool)
+func placeOrder(products []Product, kayakFault bool) error {
+	var items []OrderItem
 
-	for i := 0; i < numItems; i++ {
-		p := products[rand.Intn(len(products))]
-		if used[p.ID] {
-			continue
+	if kayakFault {
+		var kayak Product
+		found := false
+		for _, p := range products {
+			if p.ID == rapidRiverKayakProductID {
+				kayak = p
+				found = true
+				break
+			}
 		}
-		used[p.ID] = true
-		items = append(items, OrderItem{
-			ProductID: p.ID,
-			Quantity:  rand.Intn(2) + 1,
-			Price:     p.Price,
-			Name:      p.Name,
-		})
-	}
-
-	if len(items) == 0 {
-		items = append(items, OrderItem{
-			ProductID: products[0].ID,
+		if !found {
+			return fmt.Errorf("Rapid River Kayak (product %d) not in catalog", rapidRiverKayakProductID)
+		}
+		items = []OrderItem{{
+			ProductID: kayak.ID,
 			Quantity:  1,
-			Price:     products[0].Price,
-			Name:      products[0].Name,
-		})
+			Price:     kayak.Price,
+			Name:      kayak.Name,
+		}}
+	} else {
+		numItems := rand.Intn(3) + 1
+		items = make([]OrderItem, 0, numItems)
+		used := make(map[int]bool)
+
+		for i := 0; i < numItems; i++ {
+			p := products[rand.Intn(len(products))]
+			if used[p.ID] {
+				continue
+			}
+			used[p.ID] = true
+			items = append(items, OrderItem{
+				ProductID: p.ID,
+				Quantity:  rand.Intn(2) + 1,
+				Price:     p.Price,
+				Name:      p.Name,
+			})
+		}
+
+		if len(items) == 0 {
+			items = append(items, OrderItem{
+				ProductID: products[0].ID,
+				Quantity:  1,
+				Price:     products[0].Price,
+				Name:      products[0].Name,
+			})
+		}
 	}
 
 	cityIdx := rand.Intn(len(cities))
@@ -185,6 +217,9 @@ func placeOrder(products []Product) error {
 			State:   states[cityIdx%len(states)],
 			Zip:     randZip(),
 		},
+	}
+	if kayakFault {
+		order.SessionID = fmt.Sprintf("loadgen-kayak-fault-%d", rand.Int63())
 	}
 
 	// Match checkout UI: persist shipping via user-service before placing the order.
@@ -208,7 +243,15 @@ func placeOrder(products []Product) error {
 	}
 
 	body, _ := json.Marshal(order)
-	resp, err := client.Post(gatewayURL+"/orders", "application/json", bytes.NewReader(body))
+	req, err := http.NewRequest(http.MethodPost, gatewayURL+"/orders", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("POST /orders request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if kayakFault {
+		req.Header.Set("X-OdiMall-Kayak-Chaos", "true")
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("POST /orders: %w", err)
 	}
@@ -220,8 +263,13 @@ func placeOrder(products []Product) error {
 	}
 
 	if resp.StatusCode == 201 {
-		log.Printf("Order placed: %v → %s, %s %s | HTTP %d",
-			productNames, order.Shipping.Name, order.Shipping.City, order.Shipping.State, resp.StatusCode)
+		if kayakFault {
+			log.Printf("Kayak fault order placed: %v → %s, %s %s | HTTP %d",
+				productNames, order.Shipping.Name, order.Shipping.City, order.Shipping.State, resp.StatusCode)
+		} else {
+			log.Printf("Order placed: %v → %s, %s %s | HTTP %d",
+				productNames, order.Shipping.Name, order.Shipping.City, order.Shipping.State, resp.StatusCode)
+		}
 	} else {
 		log.Printf("Order FAILED: %v → HTTP %d", productNames, resp.StatusCode)
 	}
@@ -241,7 +289,8 @@ func browseProducts(products []Product) {
 }
 
 func main() {
-	log.Printf("OdiMall Load Generator starting — interval=%s gateway=%s", interval, gatewayURL)
+	log.Printf("OdiMall Load Generator starting — interval=%s gateway=%s kayakFault=%v",
+		interval, gatewayURL, kayakFaultEnabled())
 
 	// Wait for gateway to be ready
 	for i := 0; i < 30; i++ {
@@ -270,10 +319,17 @@ func main() {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
+	var orderSeq uint64
+
 	for {
 		// 70% chance: place an order, 30% chance: just browse
 		if rand.Float64() < 0.7 {
-			if err := placeOrder(automatedCatalog); err != nil {
+			kayakOrder := false
+			if kayakFaultEnabled() {
+				orderSeq++
+				kayakOrder = orderSeq%2 == 0
+			}
+			if err := placeOrder(automatedCatalog, kayakOrder); err != nil {
 				log.Printf("Error placing order: %v", err)
 			}
 		} else {

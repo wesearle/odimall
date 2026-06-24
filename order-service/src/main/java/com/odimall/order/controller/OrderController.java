@@ -10,8 +10,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
+import jakarta.servlet.http.HttpServletRequest;
 import javax.sql.DataSource;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -54,7 +56,7 @@ public class OrderController {
     }
 
     @PostMapping
-    public ResponseEntity<OrderResponse> createOrder(@RequestBody OrderRequest request) {
+    public ResponseEntity<OrderResponse> createOrder(@RequestBody OrderRequest request, HttpServletRequest httpRequest) {
         String orderId = UUID.randomUUID().toString();
 
         logger.info("Creating order={} session={} items={}", orderId, request.getSessionId(), request.getItems().size());
@@ -138,6 +140,7 @@ public class OrderController {
         }
 
         // Call inventory service
+        boolean kayakChaosDemo = isKayakChaosDemo(httpRequest);
         try {
             List<Map<String, Object>> reserveItems = new ArrayList<>();
             for (OrderRequest.OrderItem item : request.getItems()) {
@@ -147,11 +150,27 @@ public class OrderController {
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            restTemplate.postForEntity(inventoryServiceUrl + "/inventory/reserve",
+            if (kayakChaosDemo) {
+                headers.set("X-OdiMall-Kayak-Chaos", "true");
+            }
+            ResponseEntity<Map> inventoryResponse = restTemplate.postForEntity(
+                    inventoryServiceUrl + "/inventory/reserve",
                     new HttpEntity<>(inventoryRequest, headers), Map.class);
-            logger.info("Inventory reserved for order={}", orderId);
+            logger.info("Inventory reserved for order={} status={}", orderId, inventoryResponse.getStatusCode());
+            if (kayakChaosDemo && !inventoryResponse.getStatusCode().is2xxSuccessful()) {
+                logger.error("Kayak chaos demo: inventory returned {} for order={}", inventoryResponse.getStatusCode(), orderId);
+                return kayakChaosFailure(orderId, "inventory reserve failed after kayak event publish");
+            }
+        } catch (HttpStatusCodeException e) {
+            logger.error("Inventory service call failed for order={}: HTTP {}", orderId, e.getStatusCode());
+            if (kayakChaosDemo) {
+                return kayakChaosFailure(orderId, "inventory reserve failed: " + e.getStatusCode());
+            }
         } catch (Exception e) {
             logger.error("Inventory service call failed for order={}: {}", orderId, e.getMessage());
+            if (kayakChaosDemo) {
+                return kayakChaosFailure(orderId, "inventory reserve failed: " + e.getMessage());
+            }
         }
 
         BigDecimal totalAmount = subtotal.add(shippingCost).setScale(2, RoundingMode.HALF_UP);
@@ -172,6 +191,16 @@ public class OrderController {
 
         OrderResponse response = new OrderResponse(orderId, "confirmed", totalAmount, shippingCost);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    private static boolean isKayakChaosDemo(HttpServletRequest request) {
+        return "true".equalsIgnoreCase(request.getHeader("X-OdiMall-Kayak-Chaos"));
+    }
+
+    private ResponseEntity<OrderResponse> kayakChaosFailure(String orderId, String reason) {
+        logger.warn("Kayak chaos demo failure for order={}: {}", orderId, reason);
+        OrderResponse response = new OrderResponse(orderId, "failed", BigDecimal.ZERO, BigDecimal.ZERO);
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response);
     }
 
     private void saveOrder(String orderId, OrderRequest request, BigDecimal totalAmount, BigDecimal shippingCost) {

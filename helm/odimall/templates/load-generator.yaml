@@ -25,7 +25,11 @@ spec:
             - name: GATEWAY_URL
               value: "http://api-gateway:8081"
             - name: INTERVAL
-              value: "5s"
+              value: {{ ((.Values.loadGenerator | default dict).interval | default "5s") | quote }}
+{{- if (.Values.loadGenerator | default dict).kayakFaultEnabled }}
+            - name: KAYAK_FAULT_ENABLED
+              value: "true"
+{{- end }}
           resources:
             requests:
               memory: "32Mi"

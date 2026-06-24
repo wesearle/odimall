@@ -58,3 +58,15 @@ Langfuse is disabled on product-service.
 {{- end }}
 
 Helm only creates placeholder Secrets on first install; `helm upgrade --reuse-values` will not overwrite patched keys.
+
+================================================================================
+4) Rapid River Kayak Kafka ERROR (notification-service agent demo)
+================================================================================
+Default: kayak purchases are healthy. Enable every-other-order kayak faults:
+  kubectl set env -n {{ .Release.Namespace }} deployment/load-generator KAYAK_FAULT_ENABLED=true
+  kubectl rollout restart deployment/load-generator -n {{ .Release.Namespace }}
+Disable:
+  kubectl set env -n {{ .Release.Namespace }} deployment/load-generator KAYAK_FAULT_ENABLED-
+  kubectl rollout restart deployment/load-generator -n {{ .Release.Namespace }}
+Or Helm: --set loadGenerator.kayakFaultEnabled=true
+Then enable Odigos messaging payload on notification-service to see kayakChaos:true in the message body.

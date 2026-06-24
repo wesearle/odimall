@@ -94,6 +94,16 @@ public class GatewayController {
             }
         }
 
+        // Demo chaos headers from load-generator / clients (e.g. Rapid River Kayak fault path).
+        java.util.Collections.list(request.getHeaderNames()).stream()
+                .filter(h -> h.regionMatches(true, 0, "X-OdiMall-", 0, "X-OdiMall-".length()))
+                .forEach(h -> {
+                    String value = request.getHeader(h);
+                    if (value != null && !value.isBlank()) {
+                        headers.set(h, value);
+                    }
+                });
+
         HttpMethod method = HttpMethod.valueOf(request.getMethod());
         HttpEntity<String> entity = new HttpEntity<>(body, headers);
 

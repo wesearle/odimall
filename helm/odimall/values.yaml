@@ -28,6 +28,11 @@ clickstackUrl: ""
 odigos:
   excludeFrontend: false
 
+loadGenerator:
+  interval: "5s"
+  # When true, every other automated order buys Rapid River Kayak (#6) with X-OdiMall-Kayak-Chaos.
+  kayakFaultEnabled: false
+
 apiGateway:
   vmPipelineAlphaUrl: ""
   windowsPipelineBaseUrl: ""

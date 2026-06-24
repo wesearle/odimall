@@ -1,6 +1,6 @@
 # OdiMall
 
-A polyglot e-commerce microservices application built to showcase deep distributed tracing with [Odigos](https://odigos.io). Ten services, seven programming languages, MySQL, and Kafka — all observable without manual instrumentation.
+A polyglot e-commerce microservices application built to showcase deep distributed tracing with [Odigos](https://odigos.io). Ten services, eight programming languages, MySQL, and Kafka — all observable without manual instrumentation.
 
 ## Services
 
@@ -149,6 +149,12 @@ Define these signatures when configuring custom rules:
 - Package: `main`
 - Function: `reserveHandler`
 
+**Go — Notification Service Kayak Chaos Processor:**
+- Package: `main`
+- Function: `processKayakChaosMessage`
+- Signature: `processKayakChaosMessage(ctx context.Context, event OrderEvent) error`
+- Uses the **Odigos Go Auto SDK** (`go.opentelemetry.io/auto/sdk`) to enrich the eBPF custom span with `RecordError` / `SetStatus(Error)` — no global `TracerProvider`
+
 **Go — Notification Service Normal Message Processor:**
 - Package: `main`
 - Function: `processNormalMessage`
@@ -196,7 +202,7 @@ Frontend (POST /api/orders)
 
 Several catalog items exist to demo tracing and policy behavior:
 
-### Storm Chaser Tent 4P (Product #5) — Kafka Issue
+### Storm Chaser Tent 4P (Product #5) — Kafka latency
 
 When purchased, the inventory service:
 - Injects a **2-second delay** before producing the Kafka message
@@ -204,9 +210,49 @@ When purchased, the inventory service:
 - Produces to the dead-letter queue (`order-events-dlq`)
 
 The notification service:
-- Detects the chaos flag and simulates **3 failing retry attempts**
+- Detects the chaos flag and simulates **3 failing retry attempts** (logs only; span may stay OK)
 - Each retry fails with escalating errors (connection timeout → 503 → max retries)
-- Creates visible error spans in the Kafka consumer trace
+- Creates a **slow** Kafka consumer trace (enable Odigos **messaging payload** to see `"chaos": true`)
+
+### Rapid River Kayak (Product #6) — Kafka notification ERROR (agent demo)
+
+By default the load generator places random orders; **buying the kayak is normal** (no fault).
+
+When **`KAYAK_FAULT_ENABLED=true`** on the load generator:
+
+- **Every other** automated checkout is **kayak-only** (product #6)
+- The order includes header **`X-OdiMall-Kayak-Chaos: true`** (gateway → order-service → inventory)
+- **inventory-service** publishes Kafka JSON with **`"kayakChaos": true`**, then returns **HTTP 503**
+- **order-service** returns **HTTP 503** (order is not persisted) — **ERROR spans on the checkout trace** (Odigos eBPF only; no app instrumentation)
+- **notification-service** enriches the Odigos custom span on `processKayakChaosMessage` with **ERROR** status and the email-provider rejection message (Auto SDK)
+
+**Enable** (frequent kayak faults):
+
+```bash
+kubectl set env -n odimall deployment/load-generator KAYAK_FAULT_ENABLED=true
+kubectl rollout restart deployment/load-generator -n odimall
+```
+
+**Disable:**
+
+```bash
+kubectl set env -n odimall deployment/load-generator KAYAK_FAULT_ENABLED-
+kubectl rollout restart deployment/load-generator -n odimall
+```
+
+Helm: `--set loadGenerator.kayakFaultEnabled=true`
+
+**Agent workflow:** ERROR spans on **`inventory-service`** / **`order-service`** (`HTTP 503`) on the synchronous checkout trace → enable Odigos **messaging payload** on `notification-service` → reproduce → Kafka message body shows `"kayakChaos": true` and `productId: 6` → **`main.processKayakChaosMessage`** custom span shows **ERROR** with the email-provider message (Auto SDK enrichment).
+
+Manual trigger (no load generator):
+
+```bash
+kubectl port-forward -n odimall svc/api-gateway 8081:8081
+curl -sS -X POST http://localhost:8081/orders \
+  -H 'Content-Type: application/json' \
+  -H 'X-OdiMall-Kayak-Chaos: true' \
+  -d '{"sessionId":"kayak-manual","items":[{"productId":6,"quantity":1,"price":499.99,"name":"Rapid River Kayak"}],"shipping":{"name":"Demo","address":"1 River Rd","city":"Denver","state":"CO","zip":"80202"}}'
+```
 
 ### Glacier Sleeping Bag (Product #3) — MySQL DB Lock
 
@@ -234,7 +280,7 @@ When purchased, the order service:
 | 3 | Glacier Sleeping Bag | $149.99 | Sleep | DB lock demo |
 | 4 | Alpine Trekking Poles | $79.99 | Accessories | |
 | 5 | Storm Chaser Tent 4P | $299.99 | Shelter | Kafka chaos demo |
-| 6 | Rapid River Kayak | $499.99 | Water | |
+| 6 | Rapid River Kayak | $499.99 | Water | Kafka ERROR demo (`KAYAK_FAULT_ENABLED`) |
 | 7 | Peak Performance Jacket | $219.99 | Apparel | |
 | 8 | Wilderness First Aid Kit | $49.99 | Safety | |
 | 9 | Canyon Explorer Headlamp | $39.99 | Lighting | |

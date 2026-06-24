@@ -93,12 +93,16 @@ type ReserveRequest struct {
 	Items   []ReserveItem `json:"items"`
 }
 
+const rapidRiverKayakProductID = 6
+const stormChaserTentProductID = 5
+
 type KafkaOrderEvent struct {
-	OrderID   string        `json:"orderId"`
-	Items     []ReserveItem `json:"items"`
-	Status    string        `json:"status"`
-	Timestamp string        `json:"timestamp"`
-	Chaos     bool          `json:"chaos"`
+	OrderID    string        `json:"orderId"`
+	Items      []ReserveItem `json:"items"`
+	Status     string        `json:"status"`
+	Timestamp  string        `json:"timestamp"`
+	Chaos      bool          `json:"chaos"`
+	KayakChaos bool          `json:"kayakChaos,omitempty"`
 }
 
 type KafkaDLQEvent struct {
@@ -124,8 +128,11 @@ func reserveHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Reserve request for order %s with %d items", req.OrderID, len(req.Items))
 
+	kayakChaosHeader := strings.EqualFold(strings.TrimSpace(r.Header.Get("X-OdiMall-Kayak-Chaos")), "true")
+
 	var reservedItems []ReserveItem
-	chaosTriggered := false
+	tentChaosTriggered := false
+	kayakChaosTriggered := false
 
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
@@ -155,8 +162,11 @@ func reserveHandler(w http.ResponseWriter, r *http.Request) {
 
 		reservedItems = append(reservedItems, item)
 
-		if item.ProductID == 5 {
-			chaosTriggered = true
+		if item.ProductID == stormChaserTentProductID {
+			tentChaosTriggered = true
+		}
+		if item.ProductID == rapidRiverKayakProductID && kayakChaosHeader {
+			kayakChaosTriggered = true
 		}
 	}
 
@@ -166,16 +176,20 @@ func reserveHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	event := KafkaOrderEvent{
-		OrderID:   req.OrderID,
-		Items:     reservedItems,
-		Status:    "reserved",
-		Timestamp: time.Now().UTC().Format(time.RFC3339),
-		Chaos:     chaosTriggered,
+		OrderID:    req.OrderID,
+		Items:      reservedItems,
+		Status:     "reserved",
+		Timestamp:  time.Now().UTC().Format(time.RFC3339),
+		Chaos:      tentChaosTriggered,
+		KayakChaos: kayakChaosTriggered,
 	}
 
-	if chaosTriggered {
-		log.Printf("CHAOS: Storm Chaser Tent (productId=5) detected in order %s — injecting delay", req.OrderID)
+	if tentChaosTriggered {
+		log.Printf("CHAOS: Storm Chaser Tent (productId=%d) detected in order %s — injecting delay", stormChaserTentProductID, req.OrderID)
 		time.Sleep(2 * time.Second)
+	}
+	if kayakChaosTriggered {
+		log.Printf("KAYAK CHAOS: Rapid River Kayak (productId=%d) fault path for order %s", rapidRiverKayakProductID, req.OrderID)
 	}
 
 	eventBytes, _ := json.Marshal(event)
@@ -189,13 +203,26 @@ func reserveHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"failed to produce event"}`, http.StatusInternalServerError)
 		return
 	}
-	log.Printf("Produced order event to order-events for order %s (chaos=%v)", req.OrderID, chaosTriggered)
+	log.Printf("Produced order event to order-events for order %s (tentChaos=%v kayakChaos=%v)", req.OrderID, tentChaosTriggered, kayakChaosTriggered)
 
-	if chaosTriggered {
+	if kayakChaosTriggered {
+		log.Printf("KAYAK CHAOS: reserve failed after event publish for order %s (demo fault)", req.OrderID)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"error":      "kayak_chaos_notification_fault",
+			"orderId":    req.OrderID,
+			"productId":  rapidRiverKayakProductID,
+			"kayakChaos": true,
+		})
+		return
+	}
+
+	if tentChaosTriggered {
 		dlqEvent := KafkaDLQEvent{
 			OrderID:   req.OrderID,
 			Error:     "chaos_injection",
-			ProductID: 5,
+			ProductID: stormChaserTentProductID,
 		}
 		dlqBytes, _ := json.Marshal(dlqEvent)
 

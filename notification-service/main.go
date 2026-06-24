@@ -13,6 +13,12 @@ import (
 	"time"
 
 	"github.com/segmentio/kafka-go"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
+
+	_ "go.opentelemetry.io/auto/sdk" // enables Odigos eBPF Auto SDK (do not set a global TracerProvider)
 )
 
 func getEnv(key, fallback string) string {
@@ -28,9 +34,10 @@ type OrderEvent struct {
 		ProductID int `json:"productId"`
 		Quantity  int `json:"quantity"`
 	} `json:"items"`
-	Status    string `json:"status"`
-	Timestamp string `json:"timestamp"`
-	Chaos     bool   `json:"chaos"`
+	Status     string `json:"status"`
+	Timestamp  string `json:"timestamp"`
+	Chaos      bool   `json:"chaos"`
+	KayakChaos bool   `json:"kayakChaos"`
 }
 
 func connectKafkaReader(brokers []string, group, topic string) *kafka.Reader {
@@ -58,20 +65,46 @@ func connectKafkaReader(brokers []string, group, topic string) *kafka.Reader {
 	return r
 }
 
-func processMessage(msg kafka.Message) {
+func processMessage(ctx context.Context, msg kafka.Message) error {
 	var event OrderEvent
 	if err := json.Unmarshal(msg.Value, &event); err != nil {
 		log.Printf("Failed to parse message at offset %d: %v", msg.Offset, err)
-		return
+		return err
 	}
 
 	log.Printf("Processing order notification for order %s", event.OrderID)
 
+	if event.KayakChaos {
+		return processKayakChaosMessage(ctx, event)
+	}
 	if event.Chaos {
 		processChaosMessage(event)
-	} else {
-		processNormalMessage(event)
+		return nil
 	}
+	processNormalMessage(event)
+	return nil
+}
+
+// processKayakChaosMessage is a target for Odigos custom instrumentation.
+// Enrich the eBPF span via the Auto SDK — do not initialize a global TracerProvider.
+func processKayakChaosMessage(ctx context.Context, event OrderEvent) error {
+	span := trace.SpanFromContext(ctx)
+	if !span.IsRecording() {
+		ctx, span = otel.Tracer("github.com/odimall/notification-service").Start(ctx, "processKayakChaosMessage")
+		defer span.End()
+	}
+
+	err := fmt.Errorf("kayak chaos: downstream email provider rejected Rapid River Kayak shipment for order %s", event.OrderID)
+	log.Printf("KAYAK CHAOS: %v", err)
+
+	span.SetAttributes(
+		attribute.Bool("odimall.kayak_chaos", true),
+		attribute.String("order.id", event.OrderID),
+	)
+	span.RecordError(err)
+	span.SetStatus(codes.Error, err.Error())
+
+	return err
 }
 
 func processNormalMessage(event OrderEvent) {
@@ -125,7 +158,10 @@ func main() {
 				continue
 			}
 
-			processMessage(msg)
+			if err := processMessage(ctx, msg); err != nil {
+				log.Printf("ERROR processing message at offset %d: %v", msg.Offset, err)
+				continue
+			}
 
 			if err := reader.CommitMessages(ctx, msg); err != nil {
 				log.Printf("Error committing message: %v", err)
