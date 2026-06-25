@@ -322,7 +322,6 @@ function showProductDetail(id) {
         <button type="button" class="btn btn-outline" id="aiSummaryBtn" onclick="generateAiSummary(${product.id})">
           ✨ AI product blurb
         </button>
-        <p class="ai-summary-help">Calls <code>POST /products/{id}/ai-summary</code> through the gateway. The <strong>cluster</strong> picks the writer: <code>ODIMALL_AI_MODE</code> is <code>demo</code>, <code>openai</code>, or <code>gemini</code> (and <code>GEMINI_MODEL</code> when using Gemini). This page does not hard-code OpenAI vs Gemini.</p>
         <div id="aiSummaryOutput" class="ai-summary-output" style="display:none" aria-live="polite"></div>
       </div>
       <div class="quantity-selector">

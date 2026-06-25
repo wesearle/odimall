@@ -5,6 +5,7 @@ import urllib.parse
 
 # Path fix for Langfuse vs Odigos OTEL must run before any opentelemetry import.
 from langfuse_setup import flush_langfuse, init_langfuse, langfuse_enabled, observe_llm
+from genai_tracing import install_gemini_usage_enrichment
 
 from flask import Flask, jsonify, request
 from sqlalchemy import create_engine, event, text
@@ -34,6 +35,8 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
 log = logging.getLogger("product-service")
+
+install_gemini_usage_enrichment()
 
 db_host = os.getenv("DB_HOST", "mysql")
 db_port = os.getenv("DB_PORT", "3306")
@@ -101,6 +104,7 @@ def generate_with_gemini(user_prompt):
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
     if not api_key:
         return None, "Gemini is not configured"
+
     model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
     client = genai.Client(api_key=api_key)
     response = client.models.generate_content(
@@ -112,6 +116,14 @@ def generate_with_gemini(user_prompt):
             temperature=0.7,
         ),
     )
+
+    log.info("Gemini raw response: %s", response.model_dump_json(indent=2))
+    if response.candidates:
+        log.info("Gemini finish reason: %s", response.candidates[0].finish_reason)
+    else:
+        log.warning("Gemini response has no candidates")
+    log.info("Gemini usage metadata: %s", response.usage_metadata)
+
     text_out = (response.text or "").strip() if response else ""
     return text_out, None
 

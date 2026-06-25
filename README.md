@@ -159,6 +159,12 @@ Define these signatures when configuring custom rules:
 - Package: `main`
 - Function: `processNormalMessage`
 
+**Python — Product Service Gemini blurb (`genai_tracing.py`):**
+- Enriches the existing Odigos **`generate_content`** span (no extra client span) with:
+  - `gen_ai.usage.thoughts_tokens` / `gen_ai.usage.reasoning.output_tokens`
+  - `gen_ai.usage.total_tokens`
+- Uses `trace.get_current_span().set_attribute()` only — **no** global `TracerProvider`
+
 ### LLM “AI blurb” (product-service)
 
 The catalog exposes **`POST /products/{id}/ai-summary`** (via the gateway and **Storefront → product → “AI product blurb”**). Modes:
