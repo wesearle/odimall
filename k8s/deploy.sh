@@ -51,6 +51,10 @@ kubectl apply -f mysql-init-configmap.yaml
 
 if [ "$MYSQL_EPHEMERAL" = "true" ]; then
   echo "[3/5] Deploying MySQL (ephemeral emptyDir storage)..."
+  echo "      NOTE: every MySQL pod restart (OOMKill, eviction, rollout) starts"
+  echo "      from a clean DB: orders vanish, inventory resets to its 10000 seed,"
+  echo "      and manual SQL (e.g. product #11) is lost. Expect a brief burst of"
+  echo "      500s while init.sql re-runs (services auto-reconnect, no crash loops)."
 else
   echo "[3/5] Deploying MySQL (persistent PVC storage)..."
 fi

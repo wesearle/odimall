@@ -60,7 +60,11 @@ To edit `k8s/mysql.yaml` directly instead, delete the `PersistentVolumeClaim` bl
           emptyDir: {}
 ```
 
-With ephemeral storage, all MySQL data (including orders and inventory) is lost whenever the pod restarts.
+**Gotchas with ephemeral storage** — safe for demos, but every MySQL pod restart (including OOMKills — note the 512Mi limit — node evictions, and `rollout restart`) starts from a clean database:
+
+- **Data resets**: orders vanish, inventory returns to its 10000 seed, and any manual SQL (e.g. adding product #11) is lost. The storefront still merges #11 client-side, but `GET /products/11` will 404 again.
+- **Brief errors on restart**: services re-run `init.sql` each time, so expect a short burst of 500s until MySQL is ready (services auto-reconnect — no crash loops).
+- **Stale references**: `cart-service`/`user-service` keep state in memory and aren't restarted with MySQL, so previously placed orders may 404 while the cart still shows items.
 
 ## Quick Start
 
