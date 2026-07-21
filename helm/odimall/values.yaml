@@ -1,6 +1,17 @@
 images:
   frontend: wsearle/odimall:frontend
 
+# MySQL storage. Persistent by default (PVC) so data survives pod restarts.
+# Set persistence.enabled=false to use ephemeral emptyDir storage instead:
+# no StorageClass needed, and the database is re-seeded from the init
+# ConfigMap on every restart (handy for kind/minikube or throwaway demos).
+mysql:
+  persistence:
+    enabled: true
+    size: 1Gi
+    # Leave empty to use the cluster's default StorageClass.
+    storageClassName: ""
+
 rum:
   enabled: false
   endpoint: ""

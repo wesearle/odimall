@@ -4,10 +4,40 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+# MySQL storage mode. Persistent (PVC) by default; pass --ephemeral (or set
+# MYSQL_EPHEMERAL=true) to use ephemeral emptyDir storage instead.
+MYSQL_EPHEMERAL="${MYSQL_EPHEMERAL:-false}"
+for arg in "$@"; do
+  case "$arg" in
+    --ephemeral) MYSQL_EPHEMERAL=true ;;
+    --persistent) MYSQL_EPHEMERAL=false ;;
+    -h|--help)
+      echo "Usage: $0 [--ephemeral|--persistent]"
+      echo "  --ephemeral   Use emptyDir for MySQL (data lost on pod restart)"
+      echo "  --persistent  Use a PersistentVolumeClaim for MySQL (default)"
+      exit 0
+      ;;
+    *) echo "Unknown option: $arg" >&2; exit 1 ;;
+  esac
+done
+
 wait_for_deployment() {
   local name=$1
   local timeout=${2:-120s}
   kubectl rollout status "deployment/$name" -n odimall --timeout="$timeout"
+}
+
+# Emit the MySQL manifest, converting the PVC to an emptyDir volume when
+# ephemeral storage is requested (drops the PVC document, swaps the volume).
+render_mysql_manifest() {
+  if [ "$MYSQL_EPHEMERAL" = "true" ]; then
+    sed -e '1,/^---$/d' \
+        -e 's/^          persistentVolumeClaim:$/          emptyDir: {}/' \
+        -e '/^            claimName: mysql-pvc$/d' \
+        mysql.yaml
+  else
+    cat mysql.yaml
+  fi
 }
 
 echo "=== OdiMall Kubernetes Deployment ==="
@@ -19,8 +49,16 @@ kubectl apply -f namespace.yaml
 echo "[2/5] Applying MySQL init ConfigMap..."
 kubectl apply -f mysql-init-configmap.yaml
 
-echo "[3/5] Deploying MySQL..."
-kubectl apply -f mysql.yaml
+if [ "$MYSQL_EPHEMERAL" = "true" ]; then
+  echo "[3/5] Deploying MySQL (ephemeral emptyDir storage)..."
+  echo "      NOTE: every MySQL pod restart (OOMKill, eviction, rollout) starts"
+  echo "      from a clean DB: orders vanish, inventory resets to its 10000 seed,"
+  echo "      and manual SQL (e.g. product #11) is lost. Expect a brief burst of"
+  echo "      500s while init.sql re-runs (services auto-reconnect, no crash loops)."
+else
+  echo "[3/5] Deploying MySQL (persistent PVC storage)..."
+fi
+render_mysql_manifest | kubectl apply -f -
 echo "      Waiting for MySQL to be ready..."
 wait_for_deployment mysql 120s
 
