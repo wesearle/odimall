@@ -22,9 +22,45 @@ A polyglot e-commerce microservices application built to showcase deep distribut
 
 | Component | Image | Purpose |
 |-----------|-------|---------|
-| MySQL | `mysql:8.0` | Persistent datastore for products, orders, inventory |
+| MySQL | `mysql:8.0` | Persistent datastore for products, orders, inventory (see [Ephemeral MySQL storage](#ephemeral-mysql-storage) to switch to `emptyDir`) |
 | Kafka | `confluentinc/cp-kafka:7.5.0` | Event streaming (`order-events`, `order-events-dlq` topics) |
 | Zookeeper | `confluentinc/cp-zookeeper:7.5.0` | Kafka coordination |
+
+### Ephemeral MySQL storage
+
+By default MySQL uses a **`PersistentVolumeClaim`** (`mysql-pvc`, 1Gi) so product, order, and inventory data survives pod restarts. For throwaway environments (kind/minikube, CI, quick demos) you can instead use ephemeral **`emptyDir`** storage — no `StorageClass` required, and the database is re-seeded from `mysql-init-configmap.yaml` on every pod restart.
+
+**Helm** — set `mysql.persistence.enabled=false`:
+
+```bash
+helm upgrade --install odimall ./helm/odimall -n odimall --create-namespace \
+  --set mysql.persistence.enabled=false
+```
+
+Related values (see `helm/odimall/values.yaml`):
+
+| Value | Default | Description |
+|-------|---------|-------------|
+| `mysql.persistence.enabled` | `true` | `true` = PVC (persistent); `false` = `emptyDir` (ephemeral) |
+| `mysql.persistence.size` | `1Gi` | PVC size when persistence is enabled |
+| `mysql.persistence.storageClassName` | `""` | StorageClass for the PVC; empty uses the cluster default |
+
+**Raw manifests** (`k8s/deploy.sh`) — pass `--ephemeral` (or set `MYSQL_EPHEMERAL=true`); the script rewrites the MySQL manifest to use `emptyDir` on the fly:
+
+```bash
+cd k8s
+./deploy.sh --ephemeral
+```
+
+To edit `k8s/mysql.yaml` directly instead, delete the `PersistentVolumeClaim` block and swap the `mysql-data` volume to `emptyDir`:
+
+```yaml
+      volumes:
+        - name: mysql-data
+          emptyDir: {}
+```
+
+With ephemeral storage, all MySQL data (including orders and inventory) is lost whenever the pod restarts.
 
 ## Quick Start
 
