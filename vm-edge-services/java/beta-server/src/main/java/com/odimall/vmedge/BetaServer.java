@@ -1,135 +1,110 @@
 package com.odimall.vmedge;
 
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
-import com.sun.net.httpserver.HttpServer;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
-import java.io.IOException;
-import java.io.OutputStream;
-import java.net.InetSocketAddress;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
-import java.time.Duration;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Locale;
 
 /**
- * Middle hop: calls gamma over HTTP and forwards W3C trace headers.
+ * Middle hop: Spring Boot server that calls gamma via {@link RestClient} and forwards W3C trace headers.
  */
-public final class BetaServer {
+@SpringBootApplication
+@EnableConfigurationProperties(BetaServer.GammaProperties.class)
+public class BetaServer {
 
-    private BetaServer() {}
-
-    public static void main(String[] args) throws Exception {
-        String host = env("BETA_BIND_HOST", "127.0.0.1");
-        int port = Integer.parseInt(env("BETA_PORT", "9102"));
-        String gammaBase = trimSlash(env("GAMMA_BASE_URL", "http://127.0.0.1:9103"));
-
-        HttpClient http = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(5))
-                .build();
-
-        HttpServer server = HttpServer.create(new InetSocketAddress(host, port), 0);
-        server.createContext("/chain", new ChainHandler(http, gammaBase + "/chain"));
-        server.setExecutor(null);
-        server.start();
-        System.err.println("vm_beta (Java) listening on http://" + host + ":" + port + "/chain");
+    public static void main(String[] args) {
+        SpringApplication.run(BetaServer.class, args);
     }
 
-    private static String env(String k, String d) {
-        String v = System.getenv(k);
-        return (v == null || v.isBlank()) ? d : v;
+    @Bean
+    RestClient restClient(RestClient.Builder builder) {
+        return builder.build();
     }
 
-    private static String trimSlash(String u) {
-        if (u.endsWith("/")) {
-            return u.substring(0, u.length() - 1);
-        }
-        return u;
-    }
-
-    static final class ChainHandler implements HttpHandler {
-        private final HttpClient http;
-        private final String gammaChainUrl;
-
-        ChainHandler(HttpClient http, String gammaChainUrl) {
-            this.http = http;
-            this.gammaChainUrl = gammaChainUrl;
+    @ConfigurationProperties(prefix = "gamma")
+    public record GammaProperties(String baseUrl) {
+        public GammaProperties {
+            if (baseUrl == null || baseUrl.isBlank()) {
+                baseUrl = "http://127.0.0.1:9103";
+            } else if (baseUrl.endsWith("/")) {
+                baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+            }
         }
 
-        @Override
-        public void handle(HttpExchange ex) throws IOException {
-            if (!"GET".equalsIgnoreCase(ex.getRequestMethod())) {
-                ex.sendResponseHeaders(405, -1);
-                return;
-            }
-            if (!"/chain".equals(ex.getRequestURI().getPath())) {
-                ex.sendResponseHeaders(404, -1);
-                return;
-            }
+        String chainUrl() {
+            return baseUrl + "/chain";
+        }
+    }
 
-            HttpRequest.Builder rb = HttpRequest.newBuilder(URI.create(gammaChainUrl))
-                    .GET()
-                    .timeout(Duration.ofSeconds(30));
+    @RestController
+    static class ChainController {
+        private static final List<String> TRACE_HEADERS = List.of("traceparent", "tracestate", "baggage");
 
-            forwardTraceHeaders(ex, rb);
+        private final RestClient restClient;
+        private final GammaProperties gamma;
 
+        ChainController(RestClient restClient, GammaProperties gamma) {
+            this.restClient = restClient;
+            this.gamma = gamma;
+        }
+
+        @GetMapping(value = "/chain", produces = MediaType.APPLICATION_JSON_VALUE)
+        ResponseEntity<String> chain(HttpServletRequest request) {
             try {
-                HttpResponse<String> r = http.send(rb.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-                String downstream = r.body() == null ? "{}" : r.body();
-                if (r.statusCode() != 200) {
-                    errorJson(ex, r.statusCode(), downstream);
-                    return;
+                String downstream = restClient.get()
+                        .uri(gamma.chainUrl())
+                        .headers(headers -> {
+                            for (String name : TRACE_HEADERS) {
+                                String value = header(request, name);
+                                if (value != null) {
+                                    headers.set(name, value);
+                                }
+                            }
+                        })
+                        .retrieve()
+                        .body(String.class);
+                if (downstream == null || downstream.isBlank()) {
+                    downstream = "{}";
                 }
-                String body = "{\"service\":\"beta\",\"language\":\"java\",\"port\":9102,\"message\":\"Middle hop; forwarded to Java gamma.\",\"downstream\":"
+                String body = "{\"service\":\"beta\",\"language\":\"java\",\"port\":9102,"
+                        + "\"message\":\"Middle hop; forwarded to Java gamma.\",\"downstream\":"
                         + downstream
                         + "}";
-                byte[] raw = body.getBytes(StandardCharsets.UTF_8);
-                ex.getResponseHeaders().add("Content-Type", "application/json; charset=utf-8");
-                ex.sendResponseHeaders(200, raw.length);
-                try (OutputStream os = ex.getResponseBody()) {
-                    os.write(raw);
+                return ResponseEntity.ok(body);
+            } catch (RestClientResponseException e) {
+                String downstream = e.getResponseBodyAsString();
+                if (downstream == null || downstream.isBlank()) {
+                    downstream = "{}";
                 }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                errorJson(ex, 502, "{\"error\":\"interrupted\"}");
+                return ResponseEntity.status(e.getStatusCode()).body(downstream);
             } catch (Exception e) {
-                errorJson(ex, 502, "{\"error\":\"gamma_unreachable\",\"detail\":\"" + escapeJson(e.getMessage()) + "\"}");
+                String detail = e.getMessage() == null ? "" : e.getMessage()
+                        .replace("\\", "\\\\")
+                        .replace("\"", "\\\"");
+                return ResponseEntity.status(502)
+                        .body("{\"error\":\"gamma_unreachable\",\"detail\":\"" + detail + "\"}");
             }
         }
 
-        private static void forwardTraceHeaders(HttpExchange ex, HttpRequest.Builder rb) {
-            for (String name : List.of("traceparent", "tracestate", "baggage")) {
-                List<String> vals = ex.getRequestHeaders().get(name);
-                if (vals != null && !vals.isEmpty()) {
-                    rb.header(name, vals.get(0));
-                    continue;
-                }
-                String cap = name.substring(0, 1).toUpperCase(Locale.ROOT) + name.substring(1);
-                vals = ex.getRequestHeaders().get(cap);
-                if (vals != null && !vals.isEmpty()) {
-                    rb.header(name, vals.get(0));
-                }
+        private static String header(HttpServletRequest request, String name) {
+            String value = request.getHeader(name);
+            if (value != null && !value.isBlank()) {
+                return value;
             }
-        }
-
-        private static void errorJson(HttpExchange ex, int code, String body) throws IOException {
-            byte[] raw = body.getBytes(StandardCharsets.UTF_8);
-            ex.getResponseHeaders().add("Content-Type", "application/json; charset=utf-8");
-            ex.sendResponseHeaders(code, raw.length);
-            try (OutputStream os = ex.getResponseBody()) {
-                os.write(raw);
-            }
-        }
-
-        private static String escapeJson(String s) {
-            if (s == null) {
-                return "";
-            }
-            return s.replace("\\", "\\\\").replace("\"", "\\\"");
+            String cap = name.substring(0, 1).toUpperCase(Locale.ROOT) + name.substring(1);
+            value = request.getHeader(cap);
+            return (value != null && !value.isBlank()) ? value : null;
         }
     }
 }

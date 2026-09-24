@@ -5,11 +5,24 @@ using OpenTelemetry.Exporter;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
-// Hardcoded OTLP gRPC ingest for Grafana / LGTM (demo).
-const string OtlpTracesEndpoint = "http://3.146.255.106:4317";
+// OTLP gRPC via cluster LGTM NodePort (same VPC as Windows EC2).
+// Override with WINDOWS_EDGE_OTLP_TRACES_ENDPOINT / OTEL_EXPORTER_OTLP_ENDPOINT
+// and WINDOWS_EDGE_OTLP_PROTOCOL / OTEL_EXPORTER_OTLP_PROTOCOL (grpc | http/protobuf).
+const string DefaultOtlpTracesEndpoint = "http://172.31.39.127:30417";
 const string ServiceName = "windows-edge";
 
 AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
+
+var otlpTracesEndpoint = Environment.GetEnvironmentVariable("WINDOWS_EDGE_OTLP_TRACES_ENDPOINT")
+    ?? Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT")
+    ?? DefaultOtlpTracesEndpoint;
+
+var otlpProtocolRaw = (Environment.GetEnvironmentVariable("WINDOWS_EDGE_OTLP_PROTOCOL")
+    ?? Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_PROTOCOL")
+    ?? "grpc").Trim().ToLowerInvariant();
+var otlpProtocol = otlpProtocolRaw is "grpc" or "http/grpc"
+    ? OtlpExportProtocol.Grpc
+    : OtlpExportProtocol.HttpProtobuf;
 
 var bindUrl = Environment.GetEnvironmentVariable("WINDOWS_EDGE_BIND_URL")
     ?? Environment.GetEnvironmentVariable("ASPNETCORE_URLS")
@@ -41,8 +54,8 @@ builder.Services.AddOpenTelemetry()
         })
         .AddOtlpExporter(options =>
         {
-            options.Endpoint = new Uri(OtlpTracesEndpoint);
-            options.Protocol = OtlpExportProtocol.Grpc;
+            options.Endpoint = new Uri(otlpTracesEndpoint);
+            options.Protocol = otlpProtocol;
         }));
 
 var app = builder.Build();
@@ -99,14 +112,15 @@ app.MapGet("/run", (HttpContext ctx) =>
         message = "OdiMall Windows edge demo service reached from the storefront.",
         incomingTraceHeaders = traceHeaders,
         odimallHeaders,
-        otlpTracesEndpoint = OtlpTracesEndpoint,
+        otlpTracesEndpoint,
+        otlpProtocol = otlpProtocolRaw,
         utcTimestamp = DateTime.UtcNow.ToString("o")
     };
 
     return Results.Json(payload, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
 });
 
-Console.WriteLine($"OpenTelemetry traces → {OtlpTracesEndpoint} (service.name={ServiceName})");
+Console.WriteLine($"OpenTelemetry traces → {otlpTracesEndpoint} ({otlpProtocol}) (service.name={ServiceName})");
 
 app.Run();
 

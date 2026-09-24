@@ -63,10 +63,22 @@ Trace headers (`traceparent`, `tracestate`, `baggage`) and OdiMall gateway heade
 
 ## OpenTelemetry (manual instrumentation)
 
-Traces are exported over **OTLP gRPC** to a hardcoded endpoint in `Program.cs`:
+Traces are exported over **OTLP gRPC** to the in-cluster LGTM stack via NodePort (same VPC as the Windows EC2):
 
 ```text
-http://3.146.255.106:4317
+http://172.31.39.127:30417
+```
+
+(`lgtm-otlp-nodeport` in `default`: nodePort **30417** gRPC / **30418** HTTP)
+
+| Variable | Purpose |
+|----------|---------|
+| `WINDOWS_EDGE_OTLP_TRACES_ENDPOINT` | OTLP base URL (default NodePort above) |
+| `WINDOWS_EDGE_OTLP_PROTOCOL` | `grpc` (default) or `http/protobuf` |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` / `OTEL_EXPORTER_OTLP_PROTOCOL` | Standard OTel alternates |
+
+```powershell
+.\install-windows.ps1 -OtlpTracesEndpoint "http://172.31.39.127:30417" -OtlpProtocol "grpc"
 ```
 
 - **Service name:** `windows-edge`
@@ -81,6 +93,8 @@ After redeploying the Windows service, click the storefront **Windows** button a
 | Variable | Purpose |
 |----------|---------|
 | `WINDOWS_EDGE_BIND_URL` | Kestrel bind URL (default `http://0.0.0.0:9201`) |
+| `WINDOWS_EDGE_OTLP_TRACES_ENDPOINT` | OTLP gRPC traces URL (see OpenTelemetry section) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Alternate OTLP URL if the Windows-specific var is unset |
 
 ## Manual run (dev)
 

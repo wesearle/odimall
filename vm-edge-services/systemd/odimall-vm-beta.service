@@ -1,5 +1,5 @@
 [Unit]
-Description=OdiMall VM edge — beta (Java, localhost :9102)
+Description=OdiMall VM edge — beta (Spring Boot, localhost :9102)
 After=network.target odimall-vm-gamma.service
 Requires=odimall-vm-gamma.service
 

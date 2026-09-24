@@ -1,17 +1,18 @@
 package com.odimall.vmedge;
 
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
-import com.sun.net.httpserver.HttpServer;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.SimpleDriverDataSource;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.io.IOException;
-import java.io.OutputStream;
-import java.net.InetSocketAddress;
-import java.nio.charset.StandardCharsets;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.Statement;
+import jakarta.servlet.http.HttpServletRequest;
+import javax.sql.DataSource;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -19,51 +20,43 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Terminal hop: reads {@code JDBC_URL} (Postgres) and returns JSON including a DB row.
+ * Terminal hop: Spring Boot server that queries PostgreSQL via JDBC and returns JSON including DB rows.
  */
-public final class GammaServer {
+@SpringBootApplication
+public class GammaServer {
 
-    private GammaServer() {}
-
-    public static void main(String[] args) throws Exception {
-        String host = env("GAMMA_BIND_HOST", "127.0.0.1");
-        int port = Integer.parseInt(env("GAMMA_PORT", "9103"));
-        String jdbcUrl = env("JDBC_URL", "jdbc:postgresql://127.0.0.1:5432/odimall_vm?user=odimall_vm&password=odimall_vm_demo");
-
-        HttpServer server = HttpServer.create(new InetSocketAddress(host, port), 0);
-        server.createContext("/chain", new ChainHandler(jdbcUrl));
-        server.setExecutor(null);
-        server.start();
-        System.err.println("vm_gamma (Java) listening on http://" + host + ":" + port + "/chain");
+    public static void main(String[] args) {
+        SpringApplication.run(GammaServer.class, args);
     }
 
-    private static String env(String k, String d) {
-        String v = System.getenv(k);
-        return (v == null || v.isBlank()) ? d : v;
+    /**
+     * Keep compatibility with {@code JDBC_URL} that embeds user/password query params
+     * (same format as the previous non-Spring gamma service / {@code gamma.env}).
+     */
+    @Bean
+    DataSource dataSource(@Value("${spring.datasource.url}") String jdbcUrl) {
+        SimpleDriverDataSource ds = new SimpleDriverDataSource();
+        ds.setDriverClass(org.postgresql.Driver.class);
+        ds.setUrl(jdbcUrl);
+        return ds;
     }
 
-    static final class ChainHandler implements HttpHandler {
-        private final String jdbcUrl;
+    @RestController
+    static class ChainController {
+        private static final List<String> TRACE_HEADERS = List.of("traceparent", "tracestate", "baggage");
 
-        ChainHandler(String jdbcUrl) {
-            this.jdbcUrl = jdbcUrl;
+        private final JdbcTemplate jdbc;
+
+        ChainController(JdbcTemplate jdbc) {
+            this.jdbc = jdbc;
         }
 
-        @Override
-        public void handle(HttpExchange ex) throws IOException {
-            if (!"GET".equalsIgnoreCase(ex.getRequestMethod())) {
-                ex.sendResponseHeaders(405, -1);
-                return;
-            }
-            if (!"/chain".equals(ex.getRequestURI().getPath())) {
-                ex.sendResponseHeaders(404, -1);
-                return;
-            }
-
+        @GetMapping(value = "/chain", produces = MediaType.APPLICATION_JSON_VALUE)
+        ResponseEntity<String> chain(HttpServletRequest request) {
             List<String> traceKeys = new ArrayList<>();
-            for (String n : List.of("traceparent", "tracestate", "baggage")) {
-                if (header(ex, n) != null) {
-                    traceKeys.add(n);
+            for (String name : TRACE_HEADERS) {
+                if (header(request, name) != null) {
+                    traceKeys.add(name);
                 }
             }
 
@@ -72,39 +65,32 @@ public final class GammaServer {
             String err = null;
             List<Map<String, Object>> rows = new ArrayList<>();
 
-            try (Connection c = DriverManager.getConnection(jdbcUrl)) {
-                catalog = c.getCatalog();
-                try (Statement st = c.createStatement();
-                     ResultSet rs = st.executeQuery("SELECT id, note FROM demo_ping ORDER BY id ASC LIMIT 5")) {
-                    while (rs.next()) {
-                        Map<String, Object> row = new LinkedHashMap<>();
-                        row.put("id", rs.getLong("id"));
-                        row.put("note", rs.getString("note"));
-                        rows.add(row);
-                    }
-                }
+            try {
+                catalog = jdbc.queryForObject("SELECT current_database()", String.class);
+                rows = jdbc.query(
+                        "SELECT id, note FROM demo_ping ORDER BY id ASC LIMIT 5",
+                        (rs, rowNum) -> {
+                            Map<String, Object> row = new LinkedHashMap<>();
+                            row.put("id", rs.getLong("id"));
+                            row.put("note", rs.getString("note"));
+                            return row;
+                        });
                 dbOk = true;
             } catch (Exception e) {
                 err = e.getClass().getSimpleName() + ": " + e.getMessage();
             }
 
-            String body = buildJson(traceKeys, dbOk, catalog, err, rows);
-            byte[] raw = body.getBytes(StandardCharsets.UTF_8);
-            ex.getResponseHeaders().add("Content-Type", "application/json; charset=utf-8");
-            ex.sendResponseHeaders(200, raw.length);
-            try (OutputStream os = ex.getResponseBody()) {
-                os.write(raw);
-            }
+            return ResponseEntity.ok(buildJson(traceKeys, dbOk, catalog, err, rows));
         }
 
-        private static String header(HttpExchange ex, String name) {
-            List<String> v = ex.getRequestHeaders().get(name);
-            if (v != null && !v.isEmpty()) {
-                return v.get(0);
+        private static String header(HttpServletRequest request, String name) {
+            String value = request.getHeader(name);
+            if (value != null && !value.isBlank()) {
+                return value;
             }
             String cap = name.substring(0, 1).toUpperCase(Locale.ROOT) + name.substring(1);
-            v = ex.getRequestHeaders().get(cap);
-            return (v != null && !v.isEmpty()) ? v.get(0) : null;
+            value = request.getHeader(cap);
+            return (value != null && !value.isBlank()) ? value : null;
         }
 
         private static String buildJson(
@@ -145,6 +131,9 @@ public final class GammaServer {
         }
 
         private static String escape(String s) {
+            if (s == null) {
+                return "";
+            }
             return s.replace("\\", "\\\\")
                     .replace("\"", "\\\"")
                     .replace("\n", "\\n")

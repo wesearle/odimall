@@ -10,6 +10,8 @@ param(
     [string]$InstallDir = "C:\opt\odimall-windows-edge",
     [string]$ServiceName = "OdiMallWindowsEdge",
     [string]$BindUrl = "http://0.0.0.0:9201",
+    [string]$OtlpTracesEndpoint = "http://172.31.39.127:30417",
+    [string]$OtlpProtocol = "grpc",
     [int]$FirewallPort = 9201,
     [switch]$SkipDotNetInstall
 )
@@ -62,6 +64,16 @@ function Ensure-DotNetSdk {
 Write-Host "=== OdiMall Windows edge service install ===" -ForegroundColor Cyan
 Ensure-DotNetSdk
 
+$existingSvc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+if ($existingSvc) {
+    Write-Host "Stopping existing service '$ServiceName' so files can be replaced ..."
+    if ($existingSvc.Status -eq "Running") {
+        Stop-Service -Name $ServiceName -Force
+    }
+    # Give the process a moment to release file locks
+    Start-Sleep -Seconds 3
+}
+
 Write-Host "Publishing release build to $InstallDir ..."
 dotnet publish WindowsEdgeService.csproj -c Release -r win-x64 --self-contained false -o $InstallDir
 
@@ -94,6 +106,20 @@ sc.exe description $ServiceName "OdiMall demo .NET edge service for Odigos store
 sc.exe failure $ServiceName reset= 86400 actions= restart/5000/restart/5000/restart/5000 | Out-Null
 
 [System.Environment]::SetEnvironmentVariable("WINDOWS_EDGE_BIND_URL", $BindUrl, "Machine")
+$serviceEnv = @("WINDOWS_EDGE_BIND_URL=$BindUrl")
+if (-not [string]::IsNullOrWhiteSpace($OtlpTracesEndpoint)) {
+    [System.Environment]::SetEnvironmentVariable("WINDOWS_EDGE_OTLP_TRACES_ENDPOINT", $OtlpTracesEndpoint, "Machine")
+    $serviceEnv += "WINDOWS_EDGE_OTLP_TRACES_ENDPOINT=$OtlpTracesEndpoint"
+    Write-Host "OTLP traces endpoint: $OtlpTracesEndpoint" -ForegroundColor Green
+}
+if (-not [string]::IsNullOrWhiteSpace($OtlpProtocol)) {
+    [System.Environment]::SetEnvironmentVariable("WINDOWS_EDGE_OTLP_PROTOCOL", $OtlpProtocol, "Machine")
+    $serviceEnv += "WINDOWS_EDGE_OTLP_PROTOCOL=$OtlpProtocol"
+    Write-Host "OTLP protocol: $OtlpProtocol" -ForegroundColor Green
+}
+# Ensure the Windows service process sees these vars (SCM does not always pick up new Machine env without reboot).
+$svcReg = "HKLM:\SYSTEM\CurrentControlSet\Services\$ServiceName"
+New-ItemProperty -Path $svcReg -Name Environment -PropertyType MultiString -Value $serviceEnv -Force | Out-Null
 sc.exe config $ServiceName start= auto | Out-Null
 
 Start-Service -Name $ServiceName

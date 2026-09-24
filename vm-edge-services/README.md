@@ -5,8 +5,8 @@ Three **separate processes** on one Amazon Linux 2023 host, chained over HTTP:
 | Service | Language | Port | Bind | Calls |
 |---------|----------|------|------|--------|
 | **alpha** | C++ (`cpp-httplib`) | 9101 | `0.0.0.0` | beta |
-| **beta** | Java 17 (`HttpServer`) | 9102 | `127.0.0.1` | gamma |
-| **gamma** | Java 17 + JDBC | 9103 | `127.0.0.1` | PostgreSQL `demo_ping` |
+| **beta** | Java 17 (Spring Boot + `RestClient`) | 9102 | `127.0.0.1` | gamma |
+| **gamma** | Java 17 (Spring Boot + JDBC) | 9103 | `127.0.0.1` | PostgreSQL `demo_ping` |
 
 Path on every hop: **`GET /chain`**
 
@@ -92,3 +92,4 @@ mvn -f java/pom.xml package -DskipTests
 
 - **C++ alpha** is the only internet-facing process; beta/gamma stay on localhost.
 - **PostgreSQL** backs the terminal hop so you can demo DB queries alongside HTTP tracing.
+- **beta/gamma are Spring Boot** so Odigos Java eBPF can instrument the HTTP server (`Spring Boot`) and beta→gamma client (`RestClient`).

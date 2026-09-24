@@ -1,5 +1,5 @@
 [Unit]
-Description=OdiMall VM edge — gamma (Java + Postgres, localhost :9103)
+Description=OdiMall VM edge — gamma (Spring Boot + Postgres, localhost :9103)
 After=network.target postgresql.service postgresql15.service
 
 [Service]
