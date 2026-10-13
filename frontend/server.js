@@ -10,7 +10,7 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
-const API_GATEWAY_URL = process.env.API_GATEWAY_URL || 'http://api-gateway:8081';
+const API_GATEWAY_URL = process.env.API_GATEWAY_URL || 'https://api-gateway:8081';
 const RUM_ENABLED = String(process.env.RUM_ENABLED || '').toLowerCase() === 'true';
 const RUM_PROXY_TARGET = process.env.RUM_PROXY_TARGET || 'http://127.0.0.1:9998';
 const CLICKSTACK_ENABLED = String(process.env.CLICKSTACK_ENABLED || '').toLowerCase() === 'true';
@@ -183,6 +183,10 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Frontend server running on port ${PORT}`);
   console.log(`Proxying /api/* → ${API_GATEWAY_URL}`);
+  if (String(API_GATEWAY_URL).toLowerCase().startsWith('https://')) {
+    const ca = process.env.NODE_EXTRA_CA_CERTS || '(not set)';
+    console.log(`API gateway TLS: verifying with NODE_EXTRA_CA_CERTS=${ca}`);
+  }
   if (RUM_ENABLED) {
     console.log(`RUM (Faro) enabled; proxying /faro/* → ${RUM_PROXY_TARGET}`);
   }

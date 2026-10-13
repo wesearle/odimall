@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -13,10 +15,35 @@ import (
 )
 
 var (
-	gatewayURL = getEnv("GATEWAY_URL", "http://api-gateway:8081")
+	gatewayURL = getEnv("GATEWAY_URL", "https://api-gateway:8081")
 	interval   = parseDuration(getEnv("INTERVAL", "5s"))
-	client     = &http.Client{Timeout: 30 * time.Second}
+	client     *http.Client
 )
+
+// newHTTPClient builds an HTTP client. For https:// GATEWAY_URL it loads a CA PEM
+// from TLS_CA_FILE and verifies the server certificate (InsecureSkipVerify is never set).
+func newHTTPClient(baseURL string) *http.Client {
+	c := &http.Client{Timeout: 30 * time.Second}
+	if !strings.HasPrefix(strings.ToLower(baseURL), "https://") {
+		return c
+	}
+	caFile := getEnv("TLS_CA_FILE", "/etc/odimall/tls/ca.crt")
+	pem, err := os.ReadFile(caFile)
+	if err != nil {
+		log.Fatalf("HTTPS gateway requires CA file %s: %v", caFile, err)
+	}
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(pem) {
+		log.Fatalf("Failed to parse CA certificate(s) from %s", caFile)
+	}
+	c.Transport = &http.Transport{
+		TLSClientConfig: &tls.Config{
+			RootCAs:    pool,
+			MinVersion: tls.VersionTLS12,
+		},
+	}
+	return c
+}
 
 func kayakFaultEnabled() bool {
 	v := strings.ToLower(strings.TrimSpace(getEnv("KAYAK_FAULT_ENABLED", "false")))
@@ -289,6 +316,7 @@ func browseProducts(products []Product) {
 }
 
 func main() {
+	client = newHTTPClient(gatewayURL)
 	log.Printf("OdiMall Load Generator starting — interval=%s gateway=%s kayakFault=%v",
 		interval, gatewayURL, kayakFaultEnabled())
 

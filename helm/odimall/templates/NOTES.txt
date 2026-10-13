@@ -70,3 +70,14 @@ Disable:
   kubectl rollout restart deployment/load-generator -n {{ .Release.Namespace }}
 Or Helm: --set loadGenerator.kayakFaultEnabled=true
 Then enable Odigos messaging payload on notification-service to see kayakChaos:true in the message body.
+
+================================================================================
+5) Inter-service HTTPS (load-generator / frontend → api-gateway)
+================================================================================
+{{- if eq (include "odimall.tls.enabled" . | trim) "true" }}
+Enabled. Secret: **{{ include "odimall.tls.secretName" . }}**
+Clients verify with mounted ca.crt (TLS_CA_FILE / NODE_EXTRA_CA_CERTS). Rebuild api-gateway, load-generator, and frontend images if you changed TLS code.
+Disable: --set interServiceTls.enabled=false
+{{- else }}
+Disabled (HTTP to api-gateway). Enable: --set interServiceTls.enabled=true
+{{- end }}

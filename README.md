@@ -7,7 +7,7 @@ A polyglot e-commerce microservices application built to showcase deep distribut
 | Service | Language | Framework | Port | Description |
 |---------|----------|-----------|------|-------------|
 | **frontend** | Node.js | Express | 8080 | Web UI and BFF proxy to API Gateway |
-| **api-gateway** | Java 17 | Spring Boot 3.2 | 8081 | Request routing, custom HTTP headers |
+| **api-gateway** | Java 17 | Spring Boot 3.2 | 8081 | Request routing, custom HTTP headers; serves **HTTPS** (private CA) to frontend / load-generator |
 | **product-service** | Python 3.11 | Flask + SQLAlchemy | 8082 | Product catalog with SQL commenter; optional **AI product blurb** (`POST /products/{id}/ai-summary`) — **demo**, **OpenAI**, or **Gemini** (`ODIMALL_AI_MODE`) for local copy or cloud LLM / GenAI-style traces |
 | **cart-service** | Ruby 3.2 | Sinatra | 8083 | Shopping cart (in-memory) |
 | **user-service** | Node.js 20 | Express | 8084 | Shipping info storage (in-memory) |
@@ -16,7 +16,7 @@ A polyglot e-commerce microservices application built to showcase deep distribut
 | **shipping-service** | C++ | httplib (CMake) | 8087 | Shipping cost calculation |
 | **inventory-service** | Go 1.21 | Gorilla Mux | 8088 | Inventory management, Kafka producer |
 | **notification-service** | Go 1.21 | kafka-go | 8089 | Order notifications, Kafka consumer |
-| **load-generator** | Go 1.21 | net/http | — | Continuous traffic generator (configurable interval) |
+| **load-generator** | Go 1.21 | net/http | — | Continuous traffic generator; calls api-gateway over **HTTPS with CA verification** |
 
 ## Infrastructure
 
@@ -146,6 +146,28 @@ kubectl port-forward -n odimall svc/frontend 8080:8080
 ```
 
 Open [http://localhost:8080](http://localhost:8080)
+
+### Inter-service HTTPS (load-generator → api-gateway)
+
+By default, **api-gateway** serves **HTTPS** on port 8081 using a Helm/`deploy.sh`-managed private CA. The **load-generator** and **frontend** BFF mount `ca.crt` and verify the server certificate (no `InsecureSkipVerify` / no `secure: false`).
+
+- Helm: `interServiceTls.enabled` (default `true`). Secret: `<release>-api-gateway-tls` (`tls.crt`, `tls.key`, `ca.crt`).
+- Raw manifests: `deploy.sh` creates `odimall-api-gateway-tls` if missing.
+- Gateway → product/cart/user/order remains plain HTTP.
+- Rebuild and push images after changing TLS client/server code: `api-gateway`, `load-generator`, `frontend`.
+
+Disable (plaintext again):
+
+```bash
+helm upgrade odimall ./helm/odimall -n odimall --reuse-values --set interServiceTls.enabled=false
+```
+
+Port-forwarding the gateway directly requires trusting the CA (or `curl -k` for a quick check):
+
+```bash
+kubectl port-forward -n odimall svc/api-gateway 8081:8081
+# Prefer the frontend port-forward above for browsing.
+```
 
 ### Teardown
 
@@ -294,7 +316,8 @@ Manual trigger (no load generator):
 
 ```bash
 kubectl port-forward -n odimall svc/api-gateway 8081:8081
-curl -sS -X POST http://localhost:8081/orders \
+# Hostname is localhost (not api-gateway), so use -k for this one-off check:
+curl -skS -X POST https://localhost:8081/orders \
   -H 'Content-Type: application/json' \
   -H 'X-OdiMall-Kayak-Chaos: true' \
   -d '{"sessionId":"kayak-manual","items":[{"productId":6,"quantity":1,"price":499.99,"name":"Rapid River Kayak"}],"shipping":{"name":"Demo","address":"1 River Rd","city":"Denver","state":"CO","zip":"80202"}}'
@@ -350,18 +373,21 @@ INSERT INTO inventory (product_id, quantity)
 SELECT 11, 10000 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM inventory WHERE product_id = 11);
 ```
 
-## Edge demos (EC2 VM chain + Windows .NET)
+## Edge demos (EC2 VM chain + Windows .NET + AWS Lambda)
 
-The storefront navbar includes optional buttons that call external hosts through the API gateway (trace headers and OdiMall correlation headers are forwarded):
+The storefront navbar includes optional buttons that call external hosts through the API gateway (trace headers and OdiMall correlation headers are forwarded). The load-generator does **not** hit these routes.
 
 | Button | Gateway route | Upstream | Config |
 |--------|---------------|----------|--------|
 | **VM chain** | `GET /vm-pipeline/run` | EC2 Linux VM `GET /chain` (C++ → Java → Postgres) | `VM_PIPELINE_ALPHA_URL` / Helm `apiGateway.vmPipelineAlphaUrl` |
 | **Windows** | `GET /windows-pipeline/run` | Windows EC2 `GET /run` (.NET) | `WINDOWS_PIPELINE_BASE_URL` / Helm `apiGateway.windowsPipelineBaseUrl` |
+| **Lambda** | `GET /lambda-pipeline/run` | AWS Lambda Function URL chain (Python → Node.js → Java → OdiMall ALB) | `LAMBDA_PIPELINE_URL` / Helm `apiGateway.lambdaPipelineUrl` |
 
 **Windows install:** see [`windows-edge-service/README.md`](windows-edge-service/README.md) — run `install-windows.ps1` on a Windows EC2 instance, then set the gateway URL to `http://<public-ip>:9201`.
 
 **VM install:** see [`vm-edge-services/README.md`](vm-edge-services/README.md).
+
+**Lambda install:** see [`lambda-edge-services/README.md`](lambda-edge-services/README.md) — `./deploy.sh` creates three arm64 Functions + Function URLs in `us-east-2` (no OTEL/Odigos; instrument later). Wire the Python entry URL into Helm `apiGateway.lambdaPipelineUrl`.
 
 ## Project Structure
 
@@ -382,6 +408,7 @@ odimall/
 ├── user-service/          # Node.js/Express — user/shipping info
 ├── vm-edge-services/      # EC2 Linux C++/Java/Postgres chain (VM navbar button)
 ├── windows-edge-service/  # EC2 Windows .NET edge service (Windows navbar button)
+├── lambda-edge-services/  # AWS Lambda Python/Node/Java chain (Lambda navbar button)
 ├── load-generator/        # Go — continuous traffic generator
 ├── build-push.sh          # Multi-arch image build & push script
 └── README.md

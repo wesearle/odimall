@@ -1,3 +1,4 @@
+{{- $tlsEnabled := eq (include "odimall.tls.enabled" . | trim) "true" }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -16,6 +17,10 @@ spec:
       labels:
         app: load-generator
         app.kubernetes.io/part-of: odimall
+{{- if $tlsEnabled }}
+      annotations:
+        checksum/tls: {{ include (print $.Template.BasePath "/tls-secret.yaml") . | sha256sum }}
+{{- end }}
     spec:
       containers:
         - name: load-generator
@@ -23,12 +28,24 @@ spec:
           imagePullPolicy: Always
           env:
             - name: GATEWAY_URL
+{{- if $tlsEnabled }}
+              value: "https://api-gateway:8081"
+            - name: TLS_CA_FILE
+              value: "/etc/odimall/tls/ca.crt"
+{{- else }}
               value: "http://api-gateway:8081"
+{{- end }}
             - name: INTERVAL
               value: {{ ((.Values.loadGenerator | default dict).interval | default "5s") | quote }}
 {{- if (.Values.loadGenerator | default dict).kayakFaultEnabled }}
             - name: KAYAK_FAULT_ENABLED
               value: "true"
+{{- end }}
+{{- if $tlsEnabled }}
+          volumeMounts:
+            - name: tls-ca
+              mountPath: /etc/odimall/tls
+              readOnly: true
 {{- end }}
           resources:
             requests:
@@ -37,3 +54,12 @@ spec:
             limits:
               memory: "64Mi"
               cpu: "100m"
+{{- if $tlsEnabled }}
+      volumes:
+        - name: tls-ca
+          secret:
+            secretName: {{ include "odimall.tls.secretName" . }}
+            items:
+              - key: ca.crt
+                path: ca.crt
+{{- end }}

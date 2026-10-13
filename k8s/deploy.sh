@@ -27,6 +27,42 @@ wait_for_deployment() {
   kubectl rollout status "deployment/$name" -n odimall --timeout="$timeout"
 }
 
+# Private CA + api-gateway leaf cert for HTTPS (load-generator / frontend verify via ca.crt).
+ensure_api_gateway_tls_secret() {
+  local secret_name=odimall-api-gateway-tls
+  if kubectl get secret "$secret_name" -n odimall >/dev/null 2>&1; then
+    echo "      TLS secret $secret_name already exists — keeping it"
+    return 0
+  fi
+
+  local tls_dir
+  tls_dir="$(mktemp -d)"
+
+  openssl genrsa -out "$tls_dir/ca.key" 2048 >/dev/null 2>&1
+  openssl req -x509 -new -nodes -key "$tls_dir/ca.key" -sha256 -days 3650 \
+    -out "$tls_dir/ca.crt" -subj "/CN=odimall-ca" >/dev/null 2>&1
+
+  openssl genrsa -out "$tls_dir/tls.key" 2048 >/dev/null 2>&1
+  openssl req -new -key "$tls_dir/tls.key" -out "$tls_dir/tls.csr" \
+    -subj "/CN=api-gateway" >/dev/null 2>&1
+
+  cat > "$tls_dir/san.cnf" <<'EOF'
+subjectAltName=DNS:api-gateway,DNS:api-gateway.odimall,DNS:api-gateway.odimall.svc,DNS:api-gateway.odimall.svc.cluster.local
+EOF
+
+  openssl x509 -req -in "$tls_dir/tls.csr" -CA "$tls_dir/ca.crt" -CAkey "$tls_dir/ca.key" \
+    -CAcreateserial -out "$tls_dir/tls.crt" -days 3650 -sha256 \
+    -extfile "$tls_dir/san.cnf" >/dev/null 2>&1
+
+  kubectl create secret generic "$secret_name" -n odimall \
+    --from-file=tls.crt="$tls_dir/tls.crt" \
+    --from-file=tls.key="$tls_dir/tls.key" \
+    --from-file=ca.crt="$tls_dir/ca.crt" \
+    --dry-run=client -o yaml | kubectl apply -f -
+  rm -rf "$tls_dir"
+  echo "      Created TLS secret $secret_name (api-gateway HTTPS + client CA)"
+}
+
 # Emit the MySQL manifest, converting the PVC to an emptyDir volume when
 # ephemeral storage is requested (drops the PVC document, swaps the volume).
 render_mysql_manifest() {
@@ -70,6 +106,8 @@ echo "      Waiting for Kafka to be ready..."
 wait_for_deployment kafka 90s
 
 echo "[5/6] Deploying microservices..."
+echo "      Ensuring api-gateway TLS secret (HTTPS for load-generator / frontend)..."
+ensure_api_gateway_tls_secret
 kubectl apply \
   -f frontend.yaml \
   -f api-gateway.yaml \
@@ -105,7 +143,7 @@ echo "To access the frontend:"
 echo "  kubectl port-forward -n odimall svc/frontend 8080:8080"
 echo "  Then open http://localhost:8080"
 echo ""
-echo "Load generator is running (default: every 5s)."
+echo "Load generator is running (default: every 5s) over HTTPS to api-gateway (CA-verified)."
 echo "  To change frequency: kubectl set env -n odimall deployment/load-generator INTERVAL=30s"
 echo "  Kayak Kafka ERROR demo (every other order = Rapid River Kayak #6):"
 echo "    kubectl set env -n odimall deployment/load-generator KAYAK_FAULT_ENABLED=true"

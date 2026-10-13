@@ -25,7 +25,13 @@ spec:
             - containerPort: 8080
           env:
             - name: API_GATEWAY_URL
-              value: "http://api-gateway:8081"
+              value: "https://api-gateway:8081"
+            - name: NODE_EXTRA_CA_CERTS
+              value: "/etc/odimall/tls/ca.crt"
+          volumeMounts:
+            - name: tls-ca
+              mountPath: /etc/odimall/tls
+              readOnly: true
           resources:
             requests:
               memory: "128Mi"
@@ -33,6 +39,13 @@ spec:
             limits:
               memory: "256Mi"
               cpu: "250m"
+      volumes:
+        - name: tls-ca
+          secret:
+            secretName: odimall-api-gateway-tls
+            items:
+              - key: ca.crt
+                path: ca.crt
 
 ---
 apiVersion: v1

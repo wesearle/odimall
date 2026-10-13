@@ -1,6 +1,13 @@
 images:
   frontend: wsearle/odimall:frontend
 
+# HTTPS between load-generator / frontend and api-gateway (verified via private CA).
+# Clients mount ca.crt and verify — no InsecureSkipVerify.
+interServiceTls:
+  enabled: true
+  # Default Secret name: <release>-api-gateway-tls (tls.crt, tls.key, ca.crt)
+  secretName: ""
+
 # MySQL storage. Persistent by default (PVC) so data survives pod restarts.
 # Set persistence.enabled=false to use ephemeral emptyDir storage instead:
 # no StorageClass needed, and the database is re-seeded from the init
@@ -47,6 +54,11 @@ loadGenerator:
 apiGateway:
   vmPipelineAlphaUrl: ""
   windowsPipelineBaseUrl: ""
+  # Python Lambda Function URL (entry hop). Empty = Lambda navbar button returns 503.
+  # After ./lambda-edge-services/deploy.sh, set via:
+  #   --set apiGateway.lambdaPipelineUrl="<PYTHON_FUNCTION_URL>"
+  # or: kubectl set env deployment/api-gateway -n odimall LAMBDA_PIPELINE_URL="..."
+  lambdaPipelineUrl: ""
 
 alloy:
   image: grafana/alloy:v1.10.2

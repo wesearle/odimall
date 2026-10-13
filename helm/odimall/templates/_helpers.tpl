@@ -77,3 +77,27 @@ Default: <release>-langfuse-credentials
 {{- define "odimall.langfuse.secretKeySecretKey" -}}
 {{- .Values.productService.langfuse.secretKeySecretKey | default "LANGFUSE_SECRET_KEY" -}}
 {{- end }}
+
+{{/*
+TLS Secret for api-gateway HTTPS (load-generator / frontend clients verify via ca.crt).
+Default: <release>-api-gateway-tls
+*/}}
+{{- define "odimall.tls.secretName" -}}
+{{- if and (hasKey .Values "interServiceTls") .Values.interServiceTls.secretName -}}
+{{- .Values.interServiceTls.secretName -}}
+{{- else -}}
+{{- printf "%s-api-gateway-tls" .Release.Name -}}
+{{- end -}}
+{{- end }}
+
+{{- define "odimall.tls.enabled" -}}
+{{- if hasKey .Values "interServiceTls" -}}
+{{- if hasKey .Values.interServiceTls "enabled" -}}
+{{- .Values.interServiceTls.enabled -}}
+{{- else -}}
+true
+{{- end -}}
+{{- else -}}
+true
+{{- end -}}
+{{- end }}

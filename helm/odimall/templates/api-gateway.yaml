@@ -1,3 +1,4 @@
+{{- $tlsEnabled := eq (include "odimall.tls.enabled" . | trim) "true" }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -16,6 +17,10 @@ spec:
       labels:
         app: api-gateway
         app.kubernetes.io/part-of: odimall
+{{- if $tlsEnabled }}
+      annotations:
+        checksum/tls: {{ include (print $.Template.BasePath "/tls-secret.yaml") . | sha256sum }}
+{{- end }}
     spec:
       containers:
         - name: api-gateway
@@ -32,6 +37,14 @@ spec:
               value: "http://user-service:8084"
             - name: ORDER_SERVICE_URL
               value: "http://order-service:8085"
+{{- if $tlsEnabled }}
+            - name: SERVER_SSL_ENABLED
+              value: "true"
+            - name: SERVER_SSL_CERTIFICATE
+              value: "file:/etc/odimall/tls/tls.crt"
+            - name: SERVER_SSL_CERTIFICATE_PRIVATE_KEY
+              value: "file:/etc/odimall/tls/tls.key"
+{{- end }}
             {{- if .Values.apiGateway.vmPipelineAlphaUrl }}
             - name: VM_PIPELINE_ALPHA_URL
               value: {{ .Values.apiGateway.vmPipelineAlphaUrl | quote }}
@@ -40,6 +53,16 @@ spec:
             - name: WINDOWS_PIPELINE_BASE_URL
               value: {{ .Values.apiGateway.windowsPipelineBaseUrl | quote }}
             {{- end }}
+            {{- if .Values.apiGateway.lambdaPipelineUrl }}
+            - name: LAMBDA_PIPELINE_URL
+              value: {{ .Values.apiGateway.lambdaPipelineUrl | quote }}
+            {{- end }}
+{{- if $tlsEnabled }}
+          volumeMounts:
+            - name: tls
+              mountPath: /etc/odimall/tls
+              readOnly: true
+{{- end }}
           resources:
             requests:
               memory: "256Mi"
@@ -47,6 +70,17 @@ spec:
             limits:
               memory: "512Mi"
               cpu: "500m"
+{{- if $tlsEnabled }}
+      volumes:
+        - name: tls
+          secret:
+            secretName: {{ include "odimall.tls.secretName" . }}
+            items:
+              - key: tls.crt
+                path: tls.crt
+              - key: tls.key
+                path: tls.key
+{{- end }}
 
 ---
 apiVersion: v1

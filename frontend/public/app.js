@@ -160,6 +160,25 @@ async function runWindowsPipelineDemo() {
   }
 }
 
+/** Calls api-gateway → AWS Lambda chain (Python → Node → Java), each hop hitting OdiMall. Not used by load-generator. */
+async function runLambdaPipelineDemo() {
+  setLoading(true);
+  try {
+    const data = await api('/lambda-pipeline/run', { method: 'GET' });
+    if (data.error) {
+      showToast(data.message || data.error, 'error');
+      return;
+    }
+    const ms = data.elapsedMs != null ? `${data.elapsedMs}ms` : '';
+    const count = data.odimall && data.odimall.productCount != null ? data.odimall.productCount : '?';
+    showToast(`Lambda chain OK (Python → Node → Java, ${count} products${ms ? ', ' + ms : ''}). See Network tab.`, 'success');
+  } catch (e) {
+    showToast(e.message || 'Lambda chain failed', 'error');
+  } finally {
+    setLoading(false);
+  }
+}
+
 /* ===== Navigation ===== */
 function showCheckoutPipelineFault() {
   document.getElementById('loadingOverlay').style.display = 'none';

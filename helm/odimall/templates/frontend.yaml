@@ -1,3 +1,4 @@
+{{- $tlsEnabled := eq (include "odimall.tls.enabled" . | trim) "true" }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -16,6 +17,10 @@ spec:
       labels:
         app: frontend
         app.kubernetes.io/part-of: odimall
+{{- if $tlsEnabled }}
+      annotations:
+        checksum/tls: {{ include (print $.Template.BasePath "/tls-secret.yaml") . | sha256sum }}
+{{- end }}
     spec:
       containers:
         - name: frontend
@@ -25,7 +30,13 @@ spec:
             - containerPort: 8080
           env:
             - name: API_GATEWAY_URL
+{{- if $tlsEnabled }}
+              value: "https://api-gateway:8081"
+            - name: NODE_EXTRA_CA_CERTS
+              value: "/etc/odimall/tls/ca.crt"
+{{- else }}
               value: "http://api-gateway:8081"
+{{- end }}
 {{- if or .Values.rum.enabled .Values.rumEnabled }}
             - name: RUM_ENABLED
               value: "true"
@@ -47,6 +58,12 @@ spec:
                   name: {{ include "odimall.clickstack.secretName" . }}
                   key: {{ include "odimall.clickstack.secretKey" . }}
 {{- end }}
+{{- if $tlsEnabled }}
+          volumeMounts:
+            - name: tls-ca
+              mountPath: /etc/odimall/tls
+              readOnly: true
+{{- end }}
           resources:
             requests:
               memory: {{ if or .Values.clickstack.enabled .Values.clickstackEnabled }}"256Mi"{{ else }}"128Mi"{{ end }}
@@ -54,6 +71,15 @@ spec:
             limits:
               memory: {{ if or .Values.clickstack.enabled .Values.clickstackEnabled }}"512Mi"{{ else }}"256Mi"{{ end }}
               cpu: "250m"
+{{- if $tlsEnabled }}
+      volumes:
+        - name: tls-ca
+          secret:
+            secretName: {{ include "odimall.tls.secretName" . }}
+            items:
+              - key: ca.crt
+                path: ca.crt
+{{- end }}
 
 ---
 apiVersion: v1

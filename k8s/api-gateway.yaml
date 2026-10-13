@@ -32,12 +32,25 @@ spec:
               value: "http://user-service:8084"
             - name: ORDER_SERVICE_URL
               value: "http://order-service:8085"
+            - name: SERVER_SSL_ENABLED
+              value: "true"
+            - name: SERVER_SSL_CERTIFICATE
+              value: "file:/etc/odimall/tls/tls.crt"
+            - name: SERVER_SSL_CERTIFICATE_PRIVATE_KEY
+              value: "file:/etc/odimall/tls/tls.key"
             # Optional: VM edge demo — set to EC2 alpha base URL, e.g. http://203.0.113.10:9101
             # - name: VM_PIPELINE_ALPHA_URL
             #   value: "http://YOUR_EC2_PUBLIC_IP:9101"
             # Optional: Windows .NET edge demo — e.g. http://203.0.113.20:9201
             # - name: WINDOWS_PIPELINE_BASE_URL
             #   value: "http://YOUR_WINDOWS_PUBLIC_IP:9201"
+            # Optional: AWS Lambda edge chain (Python Function URL from lambda-edge-services/deploy.sh)
+            # - name: LAMBDA_PIPELINE_URL
+            #   value: "https://xxxxxxxx.lambda-url.us-east-2.on.aws/"
+          volumeMounts:
+            - name: tls
+              mountPath: /etc/odimall/tls
+              readOnly: true
           resources:
             requests:
               memory: "256Mi"
@@ -45,6 +58,15 @@ spec:
             limits:
               memory: "512Mi"
               cpu: "500m"
+      volumes:
+        - name: tls
+          secret:
+            secretName: odimall-api-gateway-tls
+            items:
+              - key: tls.crt
+                path: tls.crt
+              - key: tls.key
+                path: tls.key
 
 ---
 apiVersion: v1

@@ -1,0 +1,18 @@
+{
+  "name": "odimall-lambda-nodejs",
+  "version": "1.0.0",
+  "description": "OdiMall Lambda catalog hop (Node.js) — Odigos layer handles OTEL",
+  "main": "index.js",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {}
+}

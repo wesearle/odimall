@@ -10,3 +10,4 @@ vendor/bundle/
 bin/
 obj/
 go.sum
+lambda-edge-services/.build/
