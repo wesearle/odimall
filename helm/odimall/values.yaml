@@ -71,8 +71,8 @@ alloy:
 productService:
   aiMode: demo
   openaiModel: gpt-4o-mini
-  # New AI Studio keys often cannot use gemini-2.0-flash; 2.5 Flash is the current GA default.
-  geminiModel: gemini-2.5-flash
+  # New AI Studio keys often cannot use older Flash ids; prefer current GA (see Google error text).
+  geminiModel: gemini-3.6-flash
   # Deprecated: use productService.openai.secretName. Still honored if set.
   openaiApiKeySecretName: ""
   openaiApiKeySecretKey: ""

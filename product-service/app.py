@@ -105,15 +105,17 @@ def generate_with_gemini(user_prompt):
     if not api_key:
         return None, "Gemini is not configured"
 
-    model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
+    model_name = os.getenv("GEMINI_MODEL", "gemini-3.6-flash").strip() or "gemini-3.6-flash"
     client = genai.Client(api_key=api_key)
     response = client.models.generate_content(
         model=model_name,
         contents=user_prompt,
         config=types.GenerateContentConfig(
             system_instruction="You are a helpful retail copywriter for OdiGear outdoor gear.",
-            max_output_tokens=256,
+            # Flash models spend budget on thinking; keep headroom for the blurb itself.
+            max_output_tokens=1024,
             temperature=0.7,
+            thinking_config=types.ThinkingConfig(thinking_level="low"),
         ),
     )
 
@@ -248,11 +250,11 @@ def ai_product_summary(product_id):
             log.exception("Gemini request failed for product %s", product_id)
             detail = str(err)
             hint = None
-            if "404" in detail and "no longer available" in detail.lower():
+            if "404" in detail and ("no longer available" in detail.lower() or "NOT_FOUND" in detail):
                 hint = (
                     "Google returned 404 for this model id. New API keys often cannot use "
-                    "gemini-2.0-flash; set GEMINI_MODEL / Helm productService.geminiModel to "
-                    "gemini-2.5-flash (or gemini-2.5-flash-lite) and restart product-service."
+                    "older Flash models; set GEMINI_MODEL / Helm productService.geminiModel to "
+                    "gemini-3.6-flash (or gemini-3.1-flash-lite) and restart product-service."
                 )
             body = {"error": "Gemini request failed", "detail": detail}
             if hint:
@@ -262,7 +264,7 @@ def ai_product_summary(product_id):
             return jsonify({"error": err}), 503
         if not text_out:
             return jsonify({"error": "Empty completion from Gemini"}), 502
-        gmodel = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
+        gmodel = os.getenv("GEMINI_MODEL", "gemini-3.6-flash").strip() or "gemini-3.6-flash"
         log.info("AI summary for product %d model=%s (gemini)", product_id, gmodel)
         flush_langfuse()
         return jsonify(
