@@ -42,6 +42,10 @@ spec:
               value: "http://inventory-service:8088"
             - name: SHADOW_PEAK_PROFILE_BURN_MS
               value: "2500"
+            - name: PROMO_FAULT_ENABLED
+              value: {{ ((.Values.orderService | default dict).promoFaultEnabled | default false) | toString | quote }}
+            - name: PROMO_RESOLVER_BURN_MS
+              value: {{ dig "promoResolverBurnMs" 800 (.Values.orderService | default dict) | toString | quote }}
           resources:
             requests:
               memory: "256Mi"

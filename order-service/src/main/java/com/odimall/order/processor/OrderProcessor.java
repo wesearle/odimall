@@ -2,6 +2,8 @@ package com.odimall.order.processor;
 
 import com.odimall.order.policy.RetailFulfillmentGate;
 import com.odimall.order.policy.RetailPipelineAssessment;
+import com.odimall.order.pricing.PricedOrder;
+import com.odimall.order.pricing.PricingPipeline;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -22,9 +24,11 @@ public class OrderProcessor {
     private final AtomicLong ordersProcessed = new AtomicLong(0);
     private final AtomicLong totalItemsProcessed = new AtomicLong(0);
     private final RetailFulfillmentGate retailFulfillmentGate;
+    private final PricingPipeline pricingPipeline;
 
-    public OrderProcessor(RetailFulfillmentGate retailFulfillmentGate) {
+    public OrderProcessor(RetailFulfillmentGate retailFulfillmentGate, PricingPipeline pricingPipeline) {
         this.retailFulfillmentGate = retailFulfillmentGate;
+        this.pricingPipeline = pricingPipeline;
     }
 
     private static final BigDecimal TAX_RATE = new BigDecimal("0.08");
@@ -49,11 +53,10 @@ public class OrderProcessor {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Checkout could not be completed");
         }
 
-        BigDecimal subtotal = BigDecimal.ZERO;
+        PricedOrder priced = pricingPipeline.price(orderId, validatedItems);
+        BigDecimal subtotal = priced.discountedSubtotal();
         int totalQuantity = 0;
         for (Map<String, Object> item : validatedItems) {
-            BigDecimal lineTotal = (BigDecimal) item.get("lineTotal");
-            subtotal = subtotal.add(lineTotal);
             totalQuantity += ((Number) item.get("quantity")).intValue();
         }
 
@@ -74,6 +77,8 @@ public class OrderProcessor {
         summary.put("processedAt", processedAt.toString());
         summary.put("itemCount", validatedItems.size());
         summary.put("totalQuantity", totalQuantity);
+        summary.put("grossSubtotal", priced.subtotal());
+        summary.put("discount", priced.discount());
         summary.put("subtotal", subtotal.setScale(2, RoundingMode.HALF_UP));
         summary.put("tax", tax);
         summary.put("shippingCost", shipping);

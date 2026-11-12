@@ -27,3 +27,7 @@ management:
     web:
       exposure:
         include: health,info,metrics
+
+promo:
+  fault-enabled: ${PROMO_FAULT_ENABLED:false}
+  resolver-burn-ms: ${PROMO_RESOLVER_BURN_MS:800}

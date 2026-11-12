@@ -69,6 +69,25 @@ data:
     (1, 10000), (2, 10000), (3, 10000), (4, 10000), (5, 10000),
     (6, 10000), (7, 10000), (8, 10000), (9, 10000), (10, 10000), (11, 10000);
 
+    -- Storefront accounts. Passwords are bcrypt-hashed. This table is the target of
+    -- the SQL-injection credential-dump demo (auth-service): a tautology payload in
+    -- the login username turns a single-row lookup into a full dump of these rows.
+    -- Demo credentials: admin/Admin!2345, alice/Password123!, bob/Hunter2Pass!, carol/Tr@ilM1x99
+    CREATE TABLE users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(100) NOT NULL UNIQUE,
+        email VARCHAR(255),
+        password_hash VARCHAR(255) NOT NULL,
+        role VARCHAR(50) NOT NULL DEFAULT 'customer',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    INSERT INTO users (id, username, email, password_hash, role) VALUES
+    (1, 'admin', 'admin@odimall.example', '$2a$10$8lEQXX3gBZxuFSOLXgewouYRifTdEb1r8P2jpMqmqHVO5mJDEKRAe', 'admin'),
+    (2, 'alice', 'alice@odimall.example', '$2a$10$Ii/4Uko6gLzrt47JOJeKQ.XVrzKF8.NW1MpCX2yF/CzQTRsCSng56', 'customer'),
+    (3, 'bob', 'bob@odimall.example', '$2a$10$/fORgWvPCpuCy0anOrs8AOJTULfolqJLONpnlBZosgBpABC0boA9m', 'customer'),
+    (4, 'carol', 'carol@odimall.example', '$2a$10$UQIatRNy1j01z35Ifr654ecH4bDfJK0a8jyeGtfZMQd.YFMVDzvDO', 'customer');
+
     CREATE USER IF NOT EXISTS 'odimall'@'%' IDENTIFIED BY 'odimall123';
     GRANT ALL PRIVILEGES ON odimall.* TO 'odimall'@'%';
     FLUSH PRIVILEGES;

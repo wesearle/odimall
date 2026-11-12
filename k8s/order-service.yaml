@@ -42,6 +42,10 @@ spec:
               value: "http://inventory-service:8088"
             - name: SHADOW_PEAK_PROFILE_BURN_MS
               value: "2500"
+            - name: PROMO_FAULT_ENABLED
+              value: "false"
+            - name: PROMO_RESOLVER_BURN_MS
+              value: "800"
           resources:
             requests:
               memory: "256Mi"

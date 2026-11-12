@@ -88,17 +88,50 @@ function generateUUID() {
 
 const sessionId = getSessionId();
 
+/* ===== Auth ===== */
+const AUTH_TOKEN_KEY = 'odigear_token';
+const AUTH_USER_KEY = 'odigear_user';
+
+function getToken() {
+  try { return localStorage.getItem(AUTH_TOKEN_KEY); } catch { return null; }
+}
+function getAuthUser() {
+  try { return JSON.parse(localStorage.getItem(AUTH_USER_KEY) || 'null'); } catch { return null; }
+}
+function setAuth(token, user) {
+  try {
+    localStorage.setItem(AUTH_TOKEN_KEY, token);
+    localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user || null));
+  } catch { /* storage unavailable */ }
+}
+function clearAuth() {
+  try {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(AUTH_USER_KEY);
+  } catch { /* storage unavailable */ }
+}
+
 /* ===== API Helpers ===== */
 async function api(path, options = {}) {
   const url = `/api${path}`;
-  const config = {
-    headers: { 'Content-Type': 'application/json' },
-    ...options
-  };
+  const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+  const token = getToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  const config = { ...options, headers };
   if (config.body && typeof config.body === 'object') {
     config.body = JSON.stringify(config.body);
   }
   const res = await fetch(url, config);
+  // A 401 from any call means the session is no longer valid — force re-login.
+  if (res.status === 401 && path !== '/auth/login') {
+    clearAuth();
+    showAuthGate();
+    const e = new Error('Session expired. Please sign in again.');
+    e.status = 401;
+    throw e;
+  }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     const msg = body.error || body.message || `HTTP ${res.status}`;
@@ -640,12 +673,97 @@ function showConfirmation(order, items, shipping) {
   `;
 }
 
+/* ===== Auth gate UI ===== */
+function showAuthGate() {
+  const gate = document.getElementById('authGate');
+  if (gate) gate.style.display = 'flex';
+  document.body.classList.add('auth-locked');
+  renderNavUser();
+}
+
+function hideAuthGate() {
+  const gate = document.getElementById('authGate');
+  if (gate) gate.style.display = 'none';
+  document.body.classList.remove('auth-locked');
+}
+
+function renderNavUser() {
+  const el = document.getElementById('navUser');
+  if (!el) return;
+  const user = getAuthUser();
+  if (getToken() && user) {
+    el.style.display = 'flex';
+    el.innerHTML = `
+      <span class="nav-user-name" title="${user.role || ''}">${user.username}</span>
+      <button type="button" class="nav-logout-btn" onclick="logout()" title="Sign out">Sign out</button>
+    `;
+  } else {
+    el.style.display = 'none';
+    el.innerHTML = '';
+  }
+}
+
+async function submitLogin(event) {
+  event.preventDefault();
+  const btn = document.getElementById('loginBtn');
+  const errEl = document.getElementById('loginError');
+  const username = document.getElementById('loginUsername').value;
+  const password = document.getElementById('loginPassword').value;
+  errEl.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
+  try {
+    const res = await api('/auth/login', {
+      method: 'POST',
+      body: { username, password }
+    });
+    setAuth(res.token, res.user);
+    hideAuthGate();
+    renderNavUser();
+    document.getElementById('loginForm').reset();
+    await startApp();
+  } catch (e) {
+    errEl.textContent = e.message || 'Sign in failed';
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Sign in';
+  }
+}
+
+function logout() {
+  clearAuth();
+  showCatalog && showPage('pageCatalog');
+  showAuthGate();
+}
+
 /* ===== Init ===== */
-async function init() {
+let appStarted = false;
+async function startApp() {
+  if (appStarted) { renderNavUser(); return; }
+  appStarted = true;
+  renderNavUser();
   await fetchProducts();
   renderCatalog();
   await fetchCart();
   updateCartBadge();
+}
+
+async function init() {
+  if (!getToken()) {
+    showAuthGate();
+    return;
+  }
+  // Validate the stored token; if stale, fall back to the gate.
+  try {
+    await api('/auth/me');
+  } catch {
+    clearAuth();
+    showAuthGate();
+    return;
+  }
+  hideAuthGate();
+  await startApp();
 }
 
 init();

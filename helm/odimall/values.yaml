@@ -46,10 +46,35 @@ clickstackUrl: ""
 odigos:
   excludeFrontend: false
 
+# Authentication + SQL-injection breach demo (auth-service).
+# auth-service seeds a `users` table and serves /auth/login. By default it runs an
+# INTENTIONALLY VULNERABLE username lookup so the credential-dump attack works out
+# of the box. Set secureQueries=true to run the remediated, parameterized path.
+authService:
+  secureQueries: false
+  jwtSecret: "odimall-demo-signing-key"
+
 loadGenerator:
   interval: "5s"
   # When true, every other automated order buys Rapid River Kayak (#6) with X-OdiMall-Kayak-Chaos.
   kayakFaultEnabled: false
+  # Attacker simulation: when true the load generator periodically runs the breach
+  # sequence against /auth/login — a SQL-injection credential dump followed by a
+  # login with a stolen credential from an anomalous origin (fake IP + odd UA).
+  # Off by default so normal auth traffic stays the baseline the anomaly stands out against.
+  attackEnabled: false
+  # Seconds between attacker bursts (one dump + one stolen-credential login per burst).
+  attackIntervalSeconds: 30
+  # Comma-separated product IDs the load generator never buys or browses. "3,5" turns off the
+  # Glacier DB-lock and Storm Chaser Kafka patterns (use with orderService.promoFaultEnabled).
+  excludeProductIds: ""
+
+# Promo pricing fault (Java custom-instrumentation demo). When true, order-service loads a bad
+# promo-rules revision and checkouts containing boots (#1) or the jacket (#7) fail with HTTP 500.
+orderService:
+  promoFaultEnabled: false
+  # CPU time (ms) DiscountStackResolver burns per failing order, so it shows in profiles. 0 = off.
+  promoResolverBurnMs: 800
 
 apiGateway:
   vmPipelineAlphaUrl: ""

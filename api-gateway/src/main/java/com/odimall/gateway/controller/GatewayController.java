@@ -32,6 +32,9 @@ public class GatewayController {
     @Value("${services.order-url}")
     private String orderServiceUrl;
 
+    @Value("${services.auth-url}")
+    private String authServiceUrl;
+
     public GatewayController(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
     }
@@ -55,6 +58,13 @@ public class GatewayController {
     @RequestMapping(value = "/users/**", method = {RequestMethod.GET, RequestMethod.POST})
     public ResponseEntity<String> proxyUsers(HttpServletRequest request, @RequestBody(required = false) String body) {
         return proxy(request, userServiceUrl, body);
+    }
+
+    // --- Auth routes ---
+
+    @RequestMapping(value = "/auth/**", method = {RequestMethod.GET, RequestMethod.POST})
+    public ResponseEntity<String> proxyAuth(HttpServletRequest request, @RequestBody(required = false) String body) {
+        return proxy(request, authServiceUrl, body);
     }
 
     // --- Order routes ---
@@ -93,6 +103,25 @@ public class GatewayController {
                 headers.set(name, value);
             }
         }
+
+        // Forward the bearer token so auth-service can validate sessions (e.g. /auth/me).
+        String authorization = request.getHeader("authorization");
+        if (authorization != null && !authorization.isBlank()) {
+            headers.set("Authorization", authorization);
+        }
+
+        // Forward client-origin context so downstream services (e.g. auth-service's
+        // anomaly detection) can see the caller's IP and user-agent. Append this hop's
+        // remote address to X-Forwarded-For per convention.
+        for (String name : Set.of("user-agent", "x-real-ip")) {
+            String value = request.getHeader(name);
+            if (value != null && !value.isBlank()) {
+                headers.set(name, value);
+            }
+        }
+        String fwd = request.getHeader("x-forwarded-for");
+        String remote = request.getRemoteAddr();
+        headers.set("X-Forwarded-For", (fwd != null && !fwd.isBlank()) ? fwd + ", " + remote : remote);
 
         // Demo chaos headers from load-generator / clients (e.g. Rapid River Kayak fault path).
         java.util.Collections.list(request.getHeaderNames()).stream()

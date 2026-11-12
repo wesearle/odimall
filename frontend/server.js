@@ -158,6 +158,11 @@ app.get('/app.js', (req, res) => {
   res.type('application/javascript');
   res.sendFile(path.join(PUBLIC_DIR, 'app.js'));
 });
+app.get('/attack.js', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.type('application/javascript');
+  res.sendFile(path.join(PUBLIC_DIR, 'attack.js'));
+});
 app.get('/style.css', (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.type('text/css');

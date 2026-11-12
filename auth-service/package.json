@@ -1,0 +1,15 @@
+{
+  "name": "odimall-auth-service",
+  "version": "1.0.0",
+  "description": "OdiMall auth service - credential store, login, and SQL-injection breach demo",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.11.3"
+  }
+}
