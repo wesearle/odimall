@@ -37,6 +37,8 @@ spec:
               value: "http://user-service:8084"
             - name: ORDER_SERVICE_URL
               value: "http://order-service:8085"
+            - name: AUTH_SERVICE_URL
+              value: "http://auth-service:8090"
 {{- if $tlsEnabled }}
             - name: SERVER_SSL_ENABLED
               value: "true"

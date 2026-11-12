@@ -11,6 +11,32 @@
 </head>
 <body>
 
+  <!-- Auth gate: shown until the visitor logs in -->
+  <div id="authGate" class="auth-gate" style="display:none">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <img src="/images/odigos-logo-mark.svg" alt="" class="auth-logo" width="40" height="40" />
+        <span class="auth-brand-text">OdiGear</span>
+      </div>
+      <h1 class="auth-title">Sign in to continue</h1>
+      <p class="auth-sub">OdiGear is a demo storefront for <a href="https://odigos.io" target="_blank" rel="noopener noreferrer">Odigos</a> telemetry &amp; trace-anomaly detection.</p>
+      <form id="loginForm" onsubmit="submitLogin(event)">
+        <div class="form-group">
+          <label for="loginUsername">Username</label>
+          <input type="text" id="loginUsername" autocomplete="username" required placeholder="alice" />
+        </div>
+        <div class="form-group">
+          <label for="loginPassword">Password</label>
+          <input type="password" id="loginPassword" autocomplete="current-password" required placeholder="••••••••" />
+        </div>
+        <div id="loginError" class="auth-error" style="display:none"></div>
+        <button type="submit" class="btn btn-primary btn-lg auth-submit" id="loginBtn">Sign in</button>
+      </form>
+      <p class="auth-hint">Demo accounts — <code>alice / Password123!</code>, <code>bob / Hunter2Pass!</code>, <code>admin / Admin!2345</code></p>
+      <a href="#attack" id="openRedTeam" class="auth-redteam">☠ Red Team console — attack this login</a>
+    </div>
+  </div>
+
   <!-- Navigation -->
   <nav class="navbar">
     <div class="nav-container">
@@ -39,6 +65,7 @@
           </svg>
           <span class="cart-badge" id="cartBadge">0</span>
         </button>
+        <div class="nav-user" id="navUser" style="display:none"></div>
       </div>
     </div>
   </nav>
@@ -159,5 +186,6 @@
 
   <!-- ODIMALL_RUM_CONFIG -->
   <script src="/app.js"></script>
+  <script src="/attack.js"></script>
 </body>
 </html>

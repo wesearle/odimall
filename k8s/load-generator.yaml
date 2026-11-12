@@ -28,6 +28,15 @@ spec:
               value: "/etc/odimall/tls/ca.crt"
             - name: INTERVAL
               value: "5s"
+            # Comma-separated product IDs never bought/browsed, e.g. "3,5" to silence other problem patterns.
+            - name: EXCLUDE_PRODUCT_IDS
+              value: ""
+            # Attacker simulation (SQL-injection credential dump + stolen-credential login).
+            # Set to "true" to run the breach burst against /auth/login.
+            - name: ATTACK_ENABLED
+              value: "false"
+            - name: ATTACK_INTERVAL_SECONDS
+              value: "30"
           volumeMounts:
             - name: tls-ca
               mountPath: /etc/odimall/tls

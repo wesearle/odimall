@@ -114,6 +114,7 @@ kubectl apply \
   -f product-service.yaml \
   -f cart-service.yaml \
   -f user-service.yaml \
+  -f auth-service.yaml \
   -f order-service.yaml \
   -f payment-service.yaml \
   -f shipping-service.yaml \
@@ -123,7 +124,7 @@ kubectl apply \
 echo ""
 echo "Waiting for all microservice pods to be ready..."
 for svc in frontend api-gateway product-service cart-service user-service \
-           order-service payment-service shipping-service inventory-service \
+           auth-service order-service payment-service shipping-service inventory-service \
            notification-service; do
   echo "  Waiting for $svc..."
   wait_for_deployment "$svc" 120s
@@ -151,3 +152,14 @@ echo "    kubectl rollout restart deployment/load-generator -n odimall"
 echo "  Disable kayak faults:"
 echo "    kubectl set env -n odimall deployment/load-generator KAYAK_FAULT_ENABLED-"
 echo "    kubectl rollout restart deployment/load-generator -n odimall"
+echo ""
+echo "Auth + security demo:"
+echo "  Storefront now requires login. Demo accounts: alice/Password123!, bob/Hunter2Pass!, admin/Admin!2345"
+echo "  Attacker simulation (SQL-injection credential dump + stolen-credential login):"
+echo "    kubectl set env -n odimall deployment/load-generator ATTACK_ENABLED=true"
+echo "    kubectl rollout restart deployment/load-generator -n odimall"
+echo "  Watch the breach in the load-generator logs:"
+echo "    kubectl logs -n odimall deployment/load-generator -f | grep -E '\\[attack\\]|\\[auth\\]'"
+echo "  Remediate the SQL injection (parameterized queries) to show the 'after':"
+echo "    kubectl set env -n odimall deployment/auth-service AUTH_SECURE_QUERIES=true"
+echo "    kubectl rollout restart deployment/auth-service -n odimall"

@@ -309,24 +309,27 @@ def ai_product_summary(product_id):
     model = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini"
 
     try:
-        completion = client.chat.completions.create(
-            name="product-ai-summary",
-            model=model,
-            messages=[
+        # `name` is Langfuse-only; plain openai.OpenAI rejects it.
+        create_kwargs = {
+            "model": model,
+            "messages": [
                 {
                     "role": "system",
                     "content": "You are a helpful retail copywriter for OdiGear outdoor gear.",
                 },
                 {"role": "user", "content": user_prompt},
             ],
-            max_tokens=256,
-            temperature=0.7,
-            metadata={
+            "max_tokens": 256,
+            "temperature": 0.7,
+        }
+        if langfuse_enabled():
+            create_kwargs["name"] = "product-ai-summary"
+            create_kwargs["metadata"] = {
                 "product_id": str(product_id),
                 "product_name": product["name"],
                 "category": product["category"],
-            },
-        )
+            }
+        completion = client.chat.completions.create(**create_kwargs)
     except Exception as err:
         log.exception("OpenAI request failed for product %s", product_id)
         return jsonify({"error": "OpenAI request failed", "detail": str(err)}), 502

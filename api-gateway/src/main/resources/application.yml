@@ -12,6 +12,7 @@ services:
   cart-url: ${CART_SERVICE_URL:http://cart-service:8083}
   user-url: ${USER_SERVICE_URL:http://user-service:8084}
   order-url: ${ORDER_SERVICE_URL:http://order-service:8085}
+  auth-url: ${AUTH_SERVICE_URL:http://auth-service:8090}
 
 # Optional: laptop/kind → EC2 three-hop demo (C++ alpha on VM). Base URL only, no path.
 vm-pipeline:

@@ -37,9 +37,19 @@ spec:
 {{- end }}
             - name: INTERVAL
               value: {{ ((.Values.loadGenerator | default dict).interval | default "5s") | quote }}
+{{- with (.Values.loadGenerator | default dict).excludeProductIds }}
+            - name: EXCLUDE_PRODUCT_IDS
+              value: {{ . | toString | quote }}
+{{- end }}
 {{- if (.Values.loadGenerator | default dict).kayakFaultEnabled }}
             - name: KAYAK_FAULT_ENABLED
               value: "true"
+{{- end }}
+{{- if (.Values.loadGenerator | default dict).attackEnabled }}
+            - name: ATTACK_ENABLED
+              value: "true"
+            - name: ATTACK_INTERVAL_SECONDS
+              value: {{ ((.Values.loadGenerator | default dict).attackIntervalSeconds | default 30) | quote }}
 {{- end }}
 {{- if $tlsEnabled }}
           volumeMounts:

@@ -11,6 +11,7 @@ A polyglot e-commerce microservices application built to showcase deep distribut
 | **product-service** | Python 3.11 | Flask + SQLAlchemy | 8082 | Product catalog with SQL commenter; optional **AI product blurb** (`POST /products/{id}/ai-summary`) — **demo**, **OpenAI**, or **Gemini** (`ODIMALL_AI_MODE`) for local copy or cloud LLM / GenAI-style traces |
 | **cart-service** | Ruby 3.2 | Sinatra | 8083 | Shopping cart (in-memory) |
 | **user-service** | Node.js 20 | Express | 8084 | Shipping info storage (in-memory) |
+| **auth-service** | Node.js 20 | Express | 8090 | Login / credential store (MySQL `users`); **intentionally SQL-injectable** for the trace-anomaly security demo |
 | **order-service** | Java 17 | Spring Boot 3.2 | 8085 | Order processing, calls all downstream services |
 | **payment-service** | .NET 8 | ASP.NET Core | 8086 | Payment simulation |
 | **shipping-service** | C++ | httplib (CMake) | 8087 | Shipping cost calculation |
@@ -207,6 +208,9 @@ Define these signatures when configuring custom rules:
 - Class: `com.odimall.order.policy.RetailFulfillmentGate`
 - Method: `assessPipelineCoherence`
 
+**Java — Order Service pricing pipeline (Promo pricing fault pattern):**
+- Classes in `com.odimall.order.pricing` — see [Promo pricing fault](#promo-pricing-fault-boots-1--jacket-7--java-custom-instrumentation-demo) (answer key is collapsed there)
+
 **Go — Inventory Service Reserve Handler:**
 - Package: `main`
 - Function: `reserveHandler`
@@ -266,6 +270,79 @@ Frontend (POST /api/orders)
             └─ MySQL INSERT order_items (with SQL commenter)
 ```
 
+## Authentication & trace-anomaly security demo
+
+The storefront is gated behind a login, and **auth-service** is built to showcase a security product that detects anomalies in traces. It reproduces a two-phase credential attack whose signal lives entirely in the telemetry.
+
+> ⚠️ **auth-service is intentionally vulnerable.** The login username lookup is a string-concatenated SQL query (`credential-store.js`) so the breach is reproducible out of the box. This is a demo artifact — never ship this login flow. Set `AUTH_SECURE_QUERIES=true` for the parameterized ("remediated") path.
+
+### Accounts
+
+Seeded in `mysql-init/init.sql` (bcrypt-hashed in the `users` table):
+
+| Username | Password | Role |
+|----------|----------|------|
+| `admin` | `Admin!2345` | admin |
+| `alice` | `Password123!` | customer |
+| `bob` | `Hunter2Pass!` | customer |
+| `carol` | `Tr@ilM1x99` | customer |
+
+Login flow: frontend → `/api/auth/login` → api-gateway `/auth/**` → auth-service → MySQL `users`. On success the browser stores a JWT and sends it as `Authorization: Bearer …`. (The gate is enforced at the storefront/UI; the catalog APIs themselves remain open, so the demo centers on the auth traces, not on per-service token enforcement.)
+
+### The attack (two phases)
+
+The load generator drives both a **baseline** of legitimate logins and, when enabled, the attacker:
+
+1. **Credential theft (SQL injection → bulk dump).** The attacker sends `username = ' OR '1'='1` to `/auth/login`. The concatenated query becomes `… WHERE username = '' OR '1'='1' LIMIT 100`, a tautology that returns **every** credential row. A username lookup should match 0 or 1 rows — the anomalous `db.statement` and row count on the `users` SELECT span are the breach signal. The naive service also leaks the dumped accounts and authenticates the attacker as the first row (**admin**) with no valid password.
+2. **Stolen-credential login.** The attacker then performs a *valid* login as a real victim (`alice`) but from an **anomalous origin** — a foreign IP (`X-Forwarded-For: 203.0.113.66`) and an attacker-tool user agent (`sqlmap/…`), marked with `X-OdiMall-Origin: anomalous`. The login succeeds; the anomaly is the *context*, which the api-gateway forwards to auth-service.
+
+### Run it — three ways
+
+All three hit the same vulnerable endpoint and produce the same traces; pick what fits the moment.
+
+**1. Interactive Red Team panel (best for a live, on-screen walkthrough).** On the login screen click **“☠ Red Team console”** (or add `#attack` to the URL). Step through it:
+
+1. **Run SQL injection** → the `users` table is dumped; stolen usernames, roles, and bcrypt hashes appear in a table.
+2. **Hijack a session** → click any stolen account; a targeted injection (`… ORDER BY (username='alice') DESC --`) returns a valid JWT **for that user with no password**, from an anomalous origin. The effective SQL, token, and decoded claims are shown.
+3. **Enter storefront as victim** → you’re dropped into the real storefront logged in as them.
+
+**2. DevTools / inspect tab (hands-on hacking).** Open the browser console on any OdiGear page and drive `window.odimall`:
+
+```js
+odimall.help()              // list commands
+odimall.dump()              // SQL-injection credential dump (console.table of stolen accounts)
+odimall.loginAs("alice")    // hijack a session as any stolen user (no password)
+odimall.enter("alice")      // hijack + walk into the storefront as that user
+odimall.whoami()            // show the current (possibly stolen) session
+```
+
+**3. Load generator (hands-off, continuous — good for soak/baseline).**
+
+```bash
+kubectl set env -n odimall deployment/load-generator ATTACK_ENABLED=true
+kubectl rollout restart deployment/load-generator -n odimall
+
+# Watch the breach
+kubectl logs -n odimall deployment/load-generator -f | grep -E '\[attack\]|\[auth\]'
+kubectl logs -n odimall deployment/auth-service -f | grep -E 'BREACH|anomalous'
+```
+
+Helm equivalents: `--set loadGenerator.attackEnabled=true` (and `loadGenerator.attackIntervalSeconds`).
+
+Show the **"after"** by remediating the injection (the SQLi payload then returns `401`, normal logins still succeed):
+
+```bash
+kubectl set env -n odimall deployment/auth-service AUTH_SECURE_QUERIES=true   # or --set authService.secureQueries=true
+kubectl rollout restart deployment/auth-service -n odimall
+```
+
+### Custom instrumentation targets
+
+Instrument these named members (auth-service) so the anomaly is explicit in spans:
+
+- **`CredentialStore.findByUsername`** — row count + `db.statement`; a tautology returns the whole table.
+- **`AuthService.authenticate`** — distinguishes normal login, SQLi breach, and failed login; carries the anomalous-origin context.
+
 ## Problem Patterns
 
 Several catalog items exist to demo tracing and policy behavior:
@@ -323,6 +400,57 @@ curl -skS -X POST https://localhost:8081/orders \
   -d '{"sessionId":"kayak-manual","items":[{"productId":6,"quantity":1,"price":499.99,"name":"Rapid River Kayak"}],"shipping":{"name":"Demo","address":"1 River Rd","city":"Denver","state":"CO","zip":"80202"}}'
 ```
 
+### Promo pricing fault (Boots #1 / Jacket #7) — Java custom-instrumentation demo
+
+Built for the "ask Claude whether OdiMall is healthy" demo: the symptom is obvious in traces, but the root cause is only visible in a Java method's **return value**, so it has to be found with Odigos custom instrumentation.
+
+When **`PROMO_FAULT_ENABLED=true`** on `order-service`:
+
+- order-service loads a bad promo-rules revision (`v42`).
+- **Every checkout containing Trail Blazer Hiking Boots (#1) or Peak Performance Jacket (#7) fails with HTTP 500** from `order-service`. That's roughly a third of load-generator orders, so no manual clicking is needed.
+- Failing requests spend about **800 ms of CPU** in order-service before failing (`PROMO_RESOLVER_BURN_MS`), and they never reach payment, shipping, or inventory.
+- Logs only say `Pricing invariant check failed for order=…`. The HTTP body is a generic Spring 500. Nothing logged or returned names the cause.
+- With the fault off, the same promo applies a normal 15% discount and orders succeed.
+
+**Enable:**
+
+```bash
+kubectl set env -n odimall deployment/order-service PROMO_FAULT_ENABLED=true
+```
+
+**Disable:**
+
+```bash
+kubectl set env -n odimall deployment/order-service PROMO_FAULT_ENABLED=false
+```
+
+Helm: `--set orderService.promoFaultEnabled=true` (and `orderService.promoResolverBurnMs`, `0` = no CPU burn).
+
+**Make this the only problem in the app.** By default the load generator also buys Glacier Sleeping Bag (#3, DB lock) and Storm Chaser Tent (#5, Kafka delay/DLQ), so a health check finds three problems. Exclude those SKUs from automated traffic, and keep `KAYAK_FAULT_ENABLED` off:
+
+```bash
+kubectl set env -n odimall deployment/load-generator EXCLUDE_PRODUCT_IDS=3,5 KAYAK_FAULT_ENABLED-
+kubectl set env -n odimall deployment/order-service PROMO_FAULT_ENABLED=true
+```
+
+Helm (escape the comma): `--set 'loadGenerator.excludeProductIds=3\,5' --set orderService.promoFaultEnabled=true --set loadGenerator.kayakFaultEnabled=false`. Remove the exclusion with `kubectl set env -n odimall deployment/load-generator EXCLUDE_PRODUCT_IDS-`. Old traces with #3/#5 errors stay in Tempo for its retention window, so ask Claude about a recent time range (e.g. "last 15 minutes").
+
+**Demo flow:** ask Claude "is OdiMall healthy?" → Claude sees 500s on `order-service POST /orders` (Tempo), no failing downstream calls, and an exception stack trace / CPU profile that points into `com.odimall.order.pricing` → Claude uses the Odigos MCP to add custom instrumentation on those classes and methods → after the next failing order, one method's `return.value` names the bad rule.
+
+<details>
+<summary>Answer key (spoilers)</summary>
+
+| Class (`com.odimall.order.pricing.*`) | Method | What instrumentation shows |
+|---|---|---|
+| `PricingPipeline` | `price` | Throws; no return value on failures |
+| `PromotionRuleCatalog` | `activeRulesFor` | Which rules matched, e.g. `[FALL26-OUTERWEAR@v42]` |
+| `OrderTotalGuard` | `verify` | Symptom: arguments show the net subtotal is far below gross |
+| **`DiscountStackResolver`** | **`resolve`** | **Root cause:** `OVER_DISCOUNT\|rule=FALL26-OUTERWEAR\|pct=150\|cap=50\|cfg=promo-rules@v42\|sku=7\|…` |
+
+Root cause: promo config revision v42 set `FALL26-OUTERWEAR` to **150%** off instead of **15.0%** (a dropped decimal point). The CPU hot frame in profiles is `DiscountStackResolver.searchCompliantStacking`.
+
+</details>
+
 ### Glacier Sleeping Bag (Product #3) — MySQL DB Lock
 
 When purchased, the order service:
@@ -344,13 +472,13 @@ When purchased, the order service:
 
 | # | Name | Price | Category | Notes |
 |---|------|-------|----------|-------|
-| 1 | Trail Blazer Hiking Boots | $129.99 | Footwear | |
+| 1 | Trail Blazer Hiking Boots | $129.99 | Footwear | Promo pricing fault (`PROMO_FAULT_ENABLED`) |
 | 2 | Summit Backpack 65L | $189.99 | Packs | |
 | 3 | Glacier Sleeping Bag | $149.99 | Sleep | DB lock demo |
 | 4 | Alpine Trekking Poles | $79.99 | Accessories | |
 | 5 | Storm Chaser Tent 4P | $299.99 | Shelter | Kafka chaos demo |
 | 6 | Rapid River Kayak | $499.99 | Water | Kafka ERROR demo (`KAYAK_FAULT_ENABLED`) |
-| 7 | Peak Performance Jacket | $219.99 | Apparel | |
+| 7 | Peak Performance Jacket | $219.99 | Apparel | Promo pricing fault (`PROMO_FAULT_ENABLED`) |
 | 8 | Wilderness First Aid Kit | $49.99 | Safety | |
 | 9 | Canyon Explorer Headlamp | $39.99 | Lighting | |
 | 10 | Mountain Stream Water Filter | $34.99 | Hydration | |
@@ -406,6 +534,7 @@ odimall/
 ├── product-service/       # Python/Flask — product catalog with SQL commenter
 ├── shipping-service/      # C++ — shipping cost calculation
 ├── user-service/          # Node.js/Express — user/shipping info
+├── auth-service/          # Node.js/Express — login + SQL-injection breach demo
 ├── vm-edge-services/      # EC2 Linux C++/Java/Postgres chain (VM navbar button)
 ├── windows-edge-service/  # EC2 Windows .NET edge service (Windows navbar button)
 ├── lambda-edge-services/  # AWS Lambda Python/Node/Java chain (Lambda navbar button)
