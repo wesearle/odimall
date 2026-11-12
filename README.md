@@ -11,7 +11,7 @@ A polyglot e-commerce microservices application built to showcase deep distribut
 | **product-service** | Python 3.11 | Flask + SQLAlchemy | 8082 | Product catalog with SQL commenter; optional **AI product blurb** (`POST /products/{id}/ai-summary`) — **demo**, **OpenAI**, or **Gemini** (`ODIMALL_AI_MODE`) for local copy or cloud LLM / GenAI-style traces |
 | **cart-service** | Ruby 3.2 | Sinatra | 8083 | Shopping cart (in-memory) |
 | **user-service** | Node.js 20 | Express | 8084 | Shipping info storage (in-memory) |
-| **auth-service** | Node.js 20 | Express | 8090 | Login / credential store (MySQL `users`); **intentionally SQL-injectable** for the trace-anomaly security demo |
+| **auth-service** | Java 17 | Spring Boot 3.2 | 8090 | Login / credential store (MySQL `users`); **intentionally SQL-injectable** for the trace-anomaly security demo. Java so Odigos custom instrumentation can capture method **args + return values** |
 | **order-service** | Java 17 | Spring Boot 3.2 | 8085 | Order processing, calls all downstream services |
 | **payment-service** | .NET 8 | ASP.NET Core | 8086 | Payment simulation |
 | **shipping-service** | C++ | httplib (CMake) | 8087 | Shipping cost calculation |
@@ -274,7 +274,9 @@ Frontend (POST /api/orders)
 
 The storefront is gated behind a login, and **auth-service** is built to showcase a security product that detects anomalies in traces. It reproduces a two-phase credential attack whose signal lives entirely in the telemetry.
 
-> ⚠️ **auth-service is intentionally vulnerable.** The login username lookup is a string-concatenated SQL query (`credential-store.js`) so the breach is reproducible out of the box. This is a demo artifact — never ship this login flow. Set `AUTH_SECURE_QUERIES=true` for the parameterized ("remediated") path.
+> ⚠️ **auth-service is intentionally vulnerable.** The login username lookup is a string-concatenated SQL query (`CredentialStore.findByUsername`) so the breach is reproducible out of the box. This is a demo artifact — never ship this login flow. Set `AUTH_SECURE_QUERIES=true` for the parameterized ("remediated") path.
+
+auth-service is written in **Java (Spring Boot)** specifically so Odigos custom instrumentation can capture method **arguments and return values** in spans — the attacker's injected input surfaces as the argument to `CredentialStore.findByUsername`, and the breach decision (`outcome=SQLI_BREACH, rowsReturned=4, passwordVerified=false, bypassedAs=admin`) surfaces as the return value of `AuthService.authenticate`.
 
 ### Accounts
 
@@ -338,10 +340,10 @@ kubectl rollout restart deployment/auth-service -n odimall
 
 ### Custom instrumentation targets
 
-Instrument these named members (auth-service) so the anomaly is explicit in spans:
+Instrument these named members (auth-service, Java) so the anomaly is explicit in spans — capturing **arguments and return values**:
 
-- **`CredentialStore.findByUsername`** — row count + `db.statement`; a tautology returns the whole table.
-- **`AuthService.authenticate`** — distinguishes normal login, SQLi breach, and failed login; carries the anomalous-origin context.
+- **`CredentialStore.findByUsername(String username)`** — the **argument** is the attacker's raw input (a tautology like `' OR '1'='1`); the **return value** (`CredentialLookup`) shows the executed SQL and row count. A normal login argument is a plain username matching one row; an injection matches the whole table.
+- **`AuthService.authenticate(...)`** — the **return value** (`AuthResult`) states `outcome` (SUCCESS / SQLI_BREACH / INVALID_CREDENTIALS), `passwordVerified`, `rowsReturned`, and who was bypassed — so "a login that succeeded without a password" is visible as data in the span.
 
 ## Problem Patterns
 
@@ -534,7 +536,7 @@ odimall/
 ├── product-service/       # Python/Flask — product catalog with SQL commenter
 ├── shipping-service/      # C++ — shipping cost calculation
 ├── user-service/          # Node.js/Express — user/shipping info
-├── auth-service/          # Node.js/Express — login + SQL-injection breach demo
+├── auth-service/          # Java/Spring Boot — login + SQL-injection breach demo
 ├── vm-edge-services/      # EC2 Linux C++/Java/Postgres chain (VM navbar button)
 ├── windows-edge-service/  # EC2 Windows .NET edge service (Windows navbar button)
 ├── lambda-edge-services/  # AWS Lambda Python/Node/Java chain (Lambda navbar button)

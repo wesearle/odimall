@@ -1,21 +1,13 @@
 # syntax=docker/dockerfile:1
-# Multi-arch: linux/amd64, linux/arm64
-FROM node:20-alpine AS base
-RUN apk add --no-cache dumb-init
+FROM maven:3.9-eclipse-temurin-17 AS builder
+WORKDIR /build
+COPY pom.xml .
+RUN mvn dependency:go-offline -B
+COPY src ./src
+RUN mvn package -DskipTests -B
+
+FROM eclipse-temurin:17-jre
 WORKDIR /app
-
-# Production dependencies
-FROM base AS deps
-COPY package.json ./
-RUN npm install --omit=dev
-
-# Runtime
-FROM base AS runtime
-ENV NODE_ENV=production
-ENV PORT=8090
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY --from=builder /build/target/auth-service-*.jar app.jar
 EXPOSE 8090
-USER node
-ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "server.js"]
+ENTRYPOINT ["java", "-jar", "app.jar"]
