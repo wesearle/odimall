@@ -1,0 +1,27 @@
+server:
+  port: 8090
+
+spring:
+  application:
+    name: auth-service
+  datasource:
+    url: jdbc:mysql://${DB_HOST:mysql}:${DB_PORT:3306}/${DB_NAME:odimall}?useSSL=false&allowPublicKeyRetrieval=true
+    username: ${DB_USER:odimall}
+    password: ${DB_PASSWORD:odimall123}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+
+auth:
+  # false = INTENTIONALLY VULNERABLE concatenated query (default, so the demo works
+  # out of the box). true = parameterized / remediated path.
+  secure-queries: ${AUTH_SECURE_QUERIES:false}
+  jwt-secret: ${JWT_SECRET:odimall-demo-signing-key}
+  token-ttl-minutes: ${TOKEN_TTL_MINUTES:120}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
