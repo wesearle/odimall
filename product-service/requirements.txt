@@ -1,4 +1,5 @@
 flask
+requests
 pymysql
 sqlalchemy
 google-cloud-sqlcommenter
