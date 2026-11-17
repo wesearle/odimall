@@ -104,6 +104,13 @@ alloy:
 # aiMode=gemini — Google Generative AI SDK (GEMINI_API_KEY); enable productService.gemini and patch Secret.
 productService:
   aiMode: demo
+  # Supplier image enrichment (SSRF demo). When true, POST /products/{id}/enrich
+  # fetches ANY caller-supplied URL server-side with no allowlist — an SSRF sink
+  # an attacker can aim at internal services or the cloud metadata endpoint
+  # (169.254.169.254) to steal node IAM creds (the Capital One pattern). Odigos
+  # flags the new outbound edge. Left true on purpose for the standing security
+  # demo; ssrf-disable.command restores the allowlist (false) at runtime.
+  imageEnrich: true
   openaiModel: gpt-4o-mini
   # New AI Studio keys often cannot use older Flash ids; prefer current GA (see Google error text).
   geminiModel: gemini-3.6-flash

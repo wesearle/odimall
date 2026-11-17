@@ -3,6 +3,8 @@ import time
 import logging
 import urllib.parse
 
+import requests
+
 # Path fix for Langfuse vs Odigos OTEL must run before any opentelemetry import.
 from langfuse_setup import flush_langfuse, init_langfuse, langfuse_enabled, observe_llm
 from genai_tracing import install_gemini_usage_enrichment
@@ -48,6 +50,33 @@ db_url = f"mysql+pymysql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
 engine = None
 
 _openai_client = None
+
+# ---------------------------------------------------------------------------
+# Supplier image enrichment (SSRF security demo).
+#
+# "Fetch a product image from a supplier URL and return its metadata" is a
+# realistic merchandising feature. When IMAGE_ENRICH_ENABLED=true the fetch runs
+# with NO destination allowlist, so the caller fully controls where the server
+# makes an outbound request — an SSRF sink. An attacker can point sourceUrl at
+# internal services (lateral movement) or the cloud metadata endpoint
+# (169.254.169.254) to steal node IAM credentials — the Capital One pattern.
+#
+# Odigos sees product-service — which in demo mode makes ~no outbound calls —
+# suddenly open a connection to a brand-new peer. That new outbound edge is the
+# anomaly; no WAF signature exists for "a valid request aimed at the wrong place".
+#
+# With the safe default (false) only approved image hosts are fetched (403 else).
+# ---------------------------------------------------------------------------
+IMAGE_ENRICH_ENABLED = os.getenv("IMAGE_ENRICH_ENABLED", "false").strip().lower() == "true"
+ALLOWED_IMAGE_HOSTS = {
+    h.strip().lower()
+    for h in os.getenv(
+        "IMAGE_ENRICH_ALLOWED_HOSTS",
+        "cdn.odimall.com,images.odimall.com,assets.odimall.com",
+    ).split(",")
+    if h.strip()
+}
+MAX_FETCH_BYTES = int(os.getenv("IMAGE_ENRICH_MAX_BYTES", "65536"))
 
 
 def ai_mode():
@@ -358,6 +387,82 @@ def ai_product_summary(product_id):
             "aiSummary": text_out,
             "model": model,
             "source": "openai",
+        }
+    )
+
+
+@app.route("/products/<int:product_id>/enrich", methods=["POST"])
+def enrich_product_image(product_id):
+    """
+    Supplier image enrichment: fetch a product image from a source URL and
+    return its metadata (content-type, size, preview).
+
+    Body: { "sourceUrl": "<url>", "method"?: "GET", "headers"?: {..} }
+
+    SECURITY DEMO (see IMAGE_ENRICH_ENABLED above). When enabled this is an SSRF
+    sink: the server fetches an arbitrary caller-controlled URL with no allowlist,
+    and the caller may set the HTTP method and headers — enough to complete the
+    IMDSv2 token handshake and read node IAM credentials (the Capital One chain).
+    """
+    body = request.get_json(silent=True) or {}
+    source_url = (body.get("sourceUrl") or body.get("imageUrl") or "").strip()
+    method = (body.get("method") or "GET").strip().upper()
+    extra_headers = body.get("headers") if isinstance(body.get("headers"), dict) else {}
+    if not source_url:
+        return jsonify({"error": "sourceUrl is required"}), 400
+
+    parsed = urllib.parse.urlparse(source_url)
+    host = (parsed.hostname or "").lower()
+
+    if not IMAGE_ENRICH_ENABLED:
+        # Remediated path: only fetch from approved, allowlisted image hosts.
+        if parsed.scheme not in ("http", "https") or host not in ALLOWED_IMAGE_HOSTS:
+            log.warning(
+                "Blocked image enrich for product %s: host %r not on allowlist", product_id, host
+            )
+            return (
+                jsonify(
+                    {
+                        "error": "sourceUrl host is not allowed",
+                        "host": host,
+                        "allowedHosts": sorted(ALLOWED_IMAGE_HOSTS),
+                    }
+                ),
+                403,
+            )
+
+    # VULNERABLE when enabled: server-side fetch of an arbitrary caller-supplied URL.
+    log.info("Image enrich product=%s fetching %s %s", product_id, method, source_url)
+    try:
+        resp = requests.request(
+            method,
+            source_url,
+            headers={"User-Agent": "odimall-product-service/1.0", **extra_headers},
+            timeout=5,
+            allow_redirects=False,
+            stream=True,
+        )
+        raw = resp.raw.read(MAX_FETCH_BYTES + 1, decode_content=True) or b""
+        truncated = len(raw) > MAX_FETCH_BYTES
+        raw = raw[:MAX_FETCH_BYTES]
+        preview = raw.decode("utf-8", errors="replace")
+    except Exception as err:
+        log.warning("Image enrich fetch failed for product %s: %s", product_id, err)
+        return (
+            jsonify({"error": "fetch failed", "detail": str(err), "target": source_url}),
+            502,
+        )
+
+    return jsonify(
+        {
+            "productId": product_id,
+            "fetched": source_url,
+            "method": method,
+            "status": resp.status_code,
+            "contentType": resp.headers.get("Content-Type"),
+            "bytes": len(raw),
+            "truncated": truncated,
+            "preview": preview,
         }
     )
 

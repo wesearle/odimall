@@ -17,6 +17,19 @@ spec:
         app: product-service
         app.kubernetes.io/part-of: odimall
     spec:
+{{- if .Values.productService.imageEnrich }}
+      # SSRF demo: bind the cloud metadata IP (169.254.169.254) to loopback so a
+      # server-side request to it stays in-pod and is answered by the mock IMDS
+      # sidecar — the Capital One chain, safely, without touching the real node.
+      initContainers:
+        - name: imds-route
+          image: busybox:1.36
+          command: ["sh", "-c", "ip addr add 169.254.169.254/32 dev lo 2>/dev/null || true; ip addr show lo"]
+          securityContext:
+            runAsUser: 0
+            capabilities:
+              add: ["NET_ADMIN"]
+{{- end }}
       containers:
         - name: product-service
           image: wsearle/odimall:product-service
@@ -40,6 +53,10 @@ spec:
               value: {{ .Values.productService.openaiModel | quote }}
             - name: GEMINI_MODEL
               value: {{ .Values.productService.geminiModel | quote }}
+            # Supplier image enrichment (SSRF security demo). true = fetch any
+            # caller-supplied URL server-side (SSRF sink); false = allowlist only.
+            - name: IMAGE_ENRICH_ENABLED
+              value: {{ (.Values.productService.imageEnrich | default false) | quote }}
 {{- if .Values.productService.openai.enabled }}
             - name: OPENAI_API_KEY
               valueFrom:
@@ -77,6 +94,31 @@ spec:
             limits:
               memory: {{ if .Values.productService.langfuse.enabled }}"512Mi"{{ else }}"256Mi"{{ end }}
               cpu: "250m"
+{{- if .Values.productService.imageEnrich }}
+        # Mock AWS IMDSv2 — answers 169.254.169.254:80 inside the pod so the SSRF
+        # demo returns realistic-but-fake node credentials (see imds-mock ConfigMap).
+        - name: imds-mock
+          image: python:3.11-slim
+          command: ["python", "/opt/imds/mock-imds.py"]
+          ports:
+            - containerPort: 80
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: imds-mock
+              mountPath: /opt/imds
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "10m"
+            limits:
+              memory: "64Mi"
+              cpu: "50m"
+      volumes:
+        - name: imds-mock
+          configMap:
+            name: imds-mock
+{{- end }}
 
 ---
 apiVersion: v1

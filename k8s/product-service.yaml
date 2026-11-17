@@ -41,6 +41,10 @@ spec:
               value: "gpt-4o-mini"
             - name: GEMINI_MODEL
               value: "gemini-3.6-flash"
+            # Supplier image enrichment (SSRF security demo). true = fetch any
+            # caller-supplied URL server-side (SSRF sink); false = allowlist only.
+            - name: IMAGE_ENRICH_ENABLED
+              value: "false"
           resources:
             requests:
               memory: "128Mi"

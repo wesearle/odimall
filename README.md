@@ -370,6 +370,30 @@ kubectl port-forward -n odimall svc/user-service 8084:8084
 
 A landed attack returns `{"success":true,"receivedBytes":~21000000}` and logs `OVERSIZED upload … ~20.0MB`. In the trace, the `POST /users/shipping` span's **request payload size** is ~1000× the learned baseline. Keep `SIZE_MB` under ~60 — the pod is limited to 256Mi, and a large enough bomb will OOM it (which is itself a legitimate denial-of-service demo).
 
+### SSRF / lateral-movement demo — new-outbound-edge anomaly
+
+The strongest security demo, because **no WAF or signature tool can catch it**: there is no "bad string" and the traffic is east-west. A realistic merchandising feature — **product-service** `POST /products/{id}/enrich` ("fetch a product image from a supplier URL") — fetches a caller-supplied URL server-side. When `IMAGE_ENRICH_ENABLED=true` it does so with **no destination allowlist**, a textbook **SSRF sink**. Nothing "breaks in": every request is a legal `POST` to a real endpoint through the api-gateway. Only product-service's **outbound** behaviour is anomalous — a brand-new edge to a peer it has never contacted — which is exactly what Odigos baselines (**Service call edges / Outbound peers**) flag.
+
+Two flavors (both in `~/securitydemo/ssrf.command`):
+
+- **Flavor A — lateral movement.** Point `sourceUrl` at an internal service product-service should never call (e.g. `http://inventory-service:8088/inventory/6`). It reads back internal data (HTTP 200) and Odigos records a new service edge.
+- **Flavor B — cloud metadata theft (the Capital One chain).** Point `sourceUrl` at `http://169.254.169.254/...` and run the IMDSv2 token → role → credentials handshake (the attacker supplies `method` and `headers` in the request body). It returns node IAM credentials.
+
+> ⚠️ **Flavor B uses a MOCK IMDS, not the real node metadata.** When `imageEnrich=true`, product-service gets an init container that binds `169.254.169.254` to loopback and a sidecar (`imds-mock`) that serves a **fake** IMDSv2 responder (see `helm/odimall/files/mock-imds.py`). The on-screen result is identical to a real breach, but the real EKS node metadata is never touched and the credentials grant nothing. (The live EKS node enforces IMDSv2 with `HttpPutResponseHopLimit=1`, which blocks a pod from a real token anyway.)
+
+> ⚠️ **product-service is Python**, so Odigos captures the **outbound client span** (the new edge — the signal that matters here) but not the request/response *payload* (payload capture is Go/Node only). The injected URL still appears in the service log.
+
+**Run it** (left on by default for the standing demo via `productService.imageEnrich=true`):
+
+```bash
+# double-click or run the one-click launcher (port-forwards the gateway, fires both flavors):
+~/securitydemo/ssrf.command
+
+# disable the surface afterward (restores the allowlist, removes the mock sidecar):
+~/securitydemo/ssrf-disable.command
+#   (or: helm upgrade odimall ./helm/odimall -n odimall --reuse-values --set productService.imageEnrich=false)
+```
+
 ## Problem Patterns
 
 Several catalog items exist to demo tracing and policy behavior:

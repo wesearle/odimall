@@ -1,0 +1,17 @@
+{{- if .Values.productService.imageEnrich }}
+# Mock AWS IMDSv2 responder for the SSRF demo. Mounted into the product-service
+# pod and served on 169.254.169.254:80 so the Capital One metadata-theft chain
+# returns realistic-but-fake node credentials without touching the real cloud
+# metadata service. Only rendered when productService.imageEnrich is true.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: imds-mock
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: product-service
+    app.kubernetes.io/part-of: odimall
+data:
+  mock-imds.py: |
+{{ .Files.Get "files/mock-imds.py" | indent 4 }}
+{{- end }}
