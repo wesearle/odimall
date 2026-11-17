@@ -54,11 +54,14 @@ authService:
   secureQueries: false
   jwtSecret: "odimall-demo-signing-key"
 
-# user-service normally caps request bodies at 100kb. Set largeUploads=true to
+# user-service normally caps request bodies at 100kb. largeUploads=true makes it
 # accept large/gzip-compressed bodies so the oversized-upload ("zip bomb") attack
-# lands and surfaces as a Payload-size anomaly in traces. Keep false to stay safe.
+# lands and surfaces as a Payload-size anomaly in traces.
+# NOTE: left true on purpose for the standing security demo so the attack can be
+# fired on demand with no enable step. Set false to close this intentionally
+# vulnerable surface (zipbomb-disable.command does this at runtime).
 userService:
-  largeUploads: false
+  largeUploads: true
 
 loadGenerator:
   interval: "5s"
