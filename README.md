@@ -345,6 +345,31 @@ Instrument these named members (auth-service, Java) so the anomaly is explicit i
 - **`CredentialStore.findByUsername(String username)`** — the **argument** is the attacker's raw input (a tautology like `' OR '1'='1`); the **return value** (`CredentialLookup`) shows the executed SQL and row count. A normal login argument is a plain username matching one row; an injection matches the whole table.
 - **`AuthService.authenticate(...)`** — the **return value** (`AuthResult`) states `outcome` (SUCCESS / SQLI_BREACH / INVALID_CREDENTIALS), `passwordVerified`, `rowsReturned`, and who was bypassed — so "a login that succeeded without a password" is visible as data in the span.
 
+### Oversized / compressed-upload ("zip bomb") demo — Payload-size anomaly
+
+A second security demo trips a different baseline: **Payload size**. The attacker sends a tiny gzip-compressed HTTP body to **user-service** (`POST /users/shipping`) that **inflates into many megabytes** on the server — a normal shipping form is a few hundred bytes, so the decompressed size is the anomaly.
+
+> ⚠️ **Target user-service directly, not the api-gateway.** The gateway re-encodes request bodies and strips `Content-Encoding: gzip`, so the bomb must hit user-service itself. user-service is a Node service, so Odigos captures the HTTP request body + size.
+
+> ⚠️ **user-service is intentionally lax when enabled.** With `LARGE_UPLOADS_ENABLED=true` it raises Express's body limit to 64MB and inflates gzip bodies, so the attack lands. The safe default (`false`) keeps the 100kb cap and rejects the bomb with **HTTP 413** (a fine "blocked" data point too).
+
+**Run it** (`zipbomb-attack.sh` builds the bomb, fires it, and reports the wire-vs-inflated sizes):
+
+```bash
+# 1) enable the vulnerable path (off by default):
+helm upgrade odimall ./helm/odimall -n odimall --reuse-values --set userService.largeUploads=true
+#    (raw manifests: kubectl set env -n odimall deployment/user-service LARGE_UPLOADS_ENABLED=true)
+
+# 2) tunnel to user-service (bypasses the gateway's body re-encoding):
+kubectl port-forward -n odimall svc/user-service 8084:8084
+
+# 3) fire — 20MB inflated from a ~20KB gzip payload (~1000x):
+./zipbomb-attack.sh                 # or SIZE_MB=40 ./zipbomb-attack.sh
+#    (or let it manage the port-forward: PORT_FORWARD=1 ./zipbomb-attack.sh)
+```
+
+A landed attack returns `{"success":true,"receivedBytes":~21000000}` and logs `OVERSIZED upload … ~20.0MB`. In the trace, the `POST /users/shipping` span's **request payload size** is ~1000× the learned baseline. Keep `SIZE_MB` under ~60 — the pod is limited to 256Mi, and a large enough bomb will OOM it (which is itself a legitimate denial-of-service demo).
+
 ## Problem Patterns
 
 Several catalog items exist to demo tracing and policy behavior:

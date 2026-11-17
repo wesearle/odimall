@@ -54,6 +54,12 @@ authService:
   secureQueries: false
   jwtSecret: "odimall-demo-signing-key"
 
+# user-service normally caps request bodies at 100kb. Set largeUploads=true to
+# accept large/gzip-compressed bodies so the oversized-upload ("zip bomb") attack
+# lands and surfaces as a Payload-size anomaly in traces. Keep false to stay safe.
+userService:
+  largeUploads: false
+
 loadGenerator:
   interval: "5s"
   # When true, every other automated order buys Rapid River Kayak (#6) with X-OdiMall-Kayak-Chaos.
