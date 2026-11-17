@@ -23,6 +23,12 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 8084
+          env:
+            # Demo: when "true", user-service accepts large/gzip-compressed bodies
+            # so the oversized-upload ("zip bomb") attack lands and shows up as a
+            # Payload-size anomaly. "false" (safe default) keeps Express's 100kb cap.
+            - name: LARGE_UPLOADS_ENABLED
+              value: {{ (.Values.userService | default dict).largeUploads | default false | quote }}
           resources:
             requests:
               memory: "128Mi"
